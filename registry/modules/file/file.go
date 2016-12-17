@@ -25,15 +25,6 @@ type File struct {
 	Checksum   bool            `default:"true" description:"Calculate a checksum to check for file equality"`
 }
 
-/*func (f *File) Validate() error {
-	localPath, localPathErr := f.LocalPath.Render(nil)
-	vaultKey, vaultKeyErr := f.VaultKey.Render(nil)
-	if localPath == "" && vaultKey == "" && localPathErr == nil && vaultKeyErr == nil {
-		return fmt.Errorf("You must specify either the localpath or vaultkey settings")
-	}
-	return nil
-}*/
-
 type state struct {
 	Files map[string]*fileInfo
 }

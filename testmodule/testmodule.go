@@ -150,8 +150,6 @@ func TestModule(t *testing.T, checkAndUpdateAgent bool, dogoRootDir string, mana
 		LocalCommands:    commandtree.NewRootCommand("Local Commands"),
 		RemoteCommands:   remote,
 		RemoteConnection: connection,
-		//Environment:    c.environment,
-		//Config:         c.config,
 	}
 
 	// calculate changes for each module

@@ -23,7 +23,7 @@ type Localhost struct {
 }
 
 func (s *Localhost) OpenConnection() (schema.ServerConnection, error) {
-	return &localhostConnection{}, nil //ssh.NewSSHConnection(s.Address, 22, "root", "", "") //username string, password string, keyFile string)
+	return &localhostConnection{}, nil
 }
 
 type localhostConnection struct {

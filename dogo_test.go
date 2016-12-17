@@ -12,7 +12,6 @@ func TestDogo(t *testing.T) {
 	registry.GobRegister()
 	start := time.Now()
 	conf, errs := buildConfig("")
-	//conf, errs := buildConfig("../projectfireflies")
 	_ = conf
 	if errs != nil {
 		printErrors(errs)
@@ -20,6 +19,5 @@ func TestDogo(t *testing.T) {
 	} else {
 		fmt.Println("Parsing took", time.Since(start))
 	}
-
 	//dogoDeploy(conf, conf.Environments["dev"], false)
 }

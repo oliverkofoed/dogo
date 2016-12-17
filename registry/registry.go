@@ -100,7 +100,7 @@ func (c *GetStateCommand) Execute() {
 				if _, ok := err.(neaterror.Error); !ok {
 					err = neaterror.New(nil, err.Error())
 				}
-				state.Modules[name] = err //.Error()
+				state.Modules[name] = err
 			} else {
 				state.Modules[name] = moduleState
 			}

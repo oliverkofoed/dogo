@@ -54,6 +54,7 @@ type constructorField struct {
 
 func New(prototype interface{}, templateCreator TemplateCreator) *Constructor {
 	typ := reflect.TypeOf(prototype)
+
 	// only work on pointers to structs.
 	if typ.Kind() != reflect.Ptr {
 		panic(fmt.Sprintf("value should be a pointer to a struct. was: %v", typ.Kind()))
@@ -77,9 +78,6 @@ func New(prototype interface{}, templateCreator TemplateCreator) *Constructor {
 		field := typ.Field(i)
 		if !field.Anonymous {
 			// find the lowercase field name.
-			/*a := []rune(field.Name)
-			a[0] = unicode.ToLower(a[0])
-			lowname := string(a)*/
 			lowname := strings.ToLower(field.Name)
 
 			// add the field

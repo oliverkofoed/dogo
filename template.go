@@ -125,7 +125,6 @@ type template struct {
 	originalTemplate string
 	template         *jet.Template
 	templateVars     jet.VarMap
-	//getOpenVaultFile func(filename string, key string) ([]byte, error)
 }
 
 func (t *template) Render(override map[string]interface{}) (string, error) {

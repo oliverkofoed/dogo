@@ -591,7 +591,7 @@ func (c *findUnusedServersCommand) Execute() {
 	used := make(map[string]map[interface{}][]string) // managername => managergroup => servername[]
 
 	for manager, groups := range c.environment.ManagerGroups {
-		m, found := used[manager] //used[res.Manager.Name]
+		m, found := used[manager]
 		if !found {
 			m = make(map[interface{}][]string)
 			used[manager] = m

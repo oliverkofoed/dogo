@@ -68,7 +68,6 @@ func (v *Vault) get(key string) (interface{}, error) {
 				return nil, fmt.Errorf("Could not read from vault. Wanted: %vbytes, got %vbytes, err: %v", e.fileValueLength, n, err)
 			}
 
-			//fmt.Println("DECRYPT", v.encryptionKey, e.Key, buf)
 			decrypted, err := decrypt(v.encryptionKey, buf)
 			if err != nil {
 				return nil, err
@@ -332,7 +331,6 @@ func (v *Vault) Save() error {
 			}
 			bodyBytes.Write(encrypted)
 			length = int64(len(encrypted))
-			//fmt.Println("ENCRYPT", v.encryptionKey, e.Key, encrypted)
 		}
 
 		header.Entries = append(header.Entries, fileEntry{

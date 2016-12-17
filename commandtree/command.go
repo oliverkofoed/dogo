@@ -94,13 +94,6 @@ func (c *Command) Err(err error) {
 		err = neaterror.New(nil, err.Error())
 	}
 
-	/*
-		buf := bytes.NewBuffer(nil)
-		errx := snobgob.NewEncoder(buf).Encode(err)
-		if errx != nil {
-			c.Logf("bad: %v, %v, %v", err, errx, string(debug.Stack()))
-			return
-		}*/
 	c.log(&LogEntry{
 		Error: err,
 		Time:  time.Now(),

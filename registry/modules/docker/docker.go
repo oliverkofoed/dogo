@@ -110,8 +110,7 @@ var Manager = schema.ModuleManager{
 		client, err := getClient()
 		var localImages []types.ImageSummary
 		func() {
-			// docker client will panic if the deamon isn't there, which is why this
-			// extra recover is required.
+			// docker client will panic if the deamon isn't there, which is why this extra recover is required.
 			defer func() {
 				if r := recover(); r != nil {
 					err = fmt.Errorf("Could not communicate with docker deamon. (details: panic: %v)", r)
@@ -236,7 +235,7 @@ var Manager = schema.ModuleManager{
 				return fmt.Errorf("Container must have a name. ")
 			}
 			if _, found := containerNames[containerName]; found {
-				return fmt.Errorf("The container name '%v' is used more than once.", containerName)
+				return fmt.Errorf("the container name '%v' is used more than once", containerName)
 			}
 			containerNames[containerName] = true
 
@@ -520,7 +519,6 @@ func getClient() (*client.Client, error) {
 
 	if host == "unix:///var/run/docker.sock" {
 		return client.NewClient(host, version, nil, nil)
-	} else {
-		return client.NewClient(host, version, &http.Client{Transport: transport}, nil)
 	}
+	return client.NewClient(host, version, &http.Client{Transport: transport}, nil)
 }

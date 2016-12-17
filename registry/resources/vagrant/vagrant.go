@@ -56,7 +56,16 @@ var Manager = schema.ResourceManager{
 	Provision: func(group interface{}, resource interface{}, l schema.Logger) error {
 		g := group.(*VagrantGroup)
 		s := resource.(*Vagrant)
-		dir := filepath.Join(cacheDir, s.Name)
+
+		// fin the server label
+		label := g.DecommissionTag
+		if len(label) > 0 {
+			label += "_"
+		}
+		label += s.Name
+
+		// file paths
+		dir := filepath.Join(cacheDir, label)
 		vagrantfilePath := filepath.Join(dir, "Vagrantfile")
 		machineInfoFilePath := filepath.Join(dir, machineInfoFile)
 
@@ -66,7 +75,7 @@ var Manager = schema.ResourceManager{
 		}
 
 		// calculate the vagrant file contents
-		vagrantfile, err := vagrantfile(s, g.DecommissionTag)
+		vagrantfile, err := vagrantfile(s, label, g.DecommissionTag)
 		if err != nil {
 			return err
 		}
@@ -77,11 +86,11 @@ var Manager = schema.ResourceManager{
 			decoder := snobgob.NewDecoder(bytes.NewReader(b))
 			if err := decoder.Decode(info); err == nil {
 				if bytes.Equal(info.Vagrantfile, vagrantfile) {
-					if stdout, _, err := virtualbox.VMBoxManage("showvminfo", s.Name); err == nil {
+					if stdout, _, err := virtualbox.VMBoxManage("showvminfo", label); err == nil {
 						started := strings.Contains(stdout, "State:           running")
 						if !started {
 							l.Logf("Starting virtualbox VM directly (bypassing vagrant for speed)")
-							if _, _, err := virtualbox.VMBoxManage("startvm", s.Name, "--type", "headless"); err != nil {
+							if _, _, err := virtualbox.VMBoxManage("startvm", label, "--type", "headless"); err != nil {
 								l.Logf(" - error starting virtualbox VM directly. falling back to vagrant.")
 							} else {
 								started = true
@@ -90,7 +99,6 @@ var Manager = schema.ResourceManager{
 
 						if started {
 							// wait for ssh.
-							//l.Logf("ssh: %v:%v,%v, %v, ", info.SSHAddress, info.SSHPort, info.SSHUser, info.SSHKey)
 							if err := ssh.WaitForSSH(info.SSHAddress, info.SSHPort, info.SSHUser, "", info.SSHKey, time.Millisecond*200); err == nil {
 								s.info = info
 								return nil
@@ -242,9 +250,15 @@ var Manager = schema.ResourceManager{
 						if group, ok := groupIface.(*VagrantGroup); ok {
 							if info.DecommissionTag == group.DecommissionTag {
 								serverName := filepath.Base(dirname)
+
 								found := false
 								for _, name := range names {
-									if name == serverName {
+									label := name
+									if group.DecommissionTag != "" {
+										label = group.DecommissionTag + "_" + name
+									}
+
+									if label == serverName {
 										found = true
 										break
 									}
@@ -261,23 +275,21 @@ var Manager = schema.ResourceManager{
 		}
 
 		if len(unusedNames) > 0 {
-			decommisionRoot.Add("Decommission vagrant servers", &decommisionCommand{names: unusedNames})
+			decommisionRoot.Add("Decommission vagrant servers", &decommisionCommand{labels: unusedNames})
 		}
 		return unusedNames, nil
 	},
-	/*Decommission: func(names []string, l schema.Logger) error {
-	},*/
 }
 
 type decommisionCommand struct {
 	commandtree.Command
-	names []string
+	labels []string
 }
 
 func (c *decommisionCommand) Execute() {
-	for _, name := range c.names {
-		c.Logf("decommissioning %v", name)
-		serverDir := filepath.Join(cacheDir, name)
+	for _, label := range c.labels {
+		c.Logf("decommissioning %v", label)
+		serverDir := filepath.Join(cacheDir, label)
 		b := bytes.NewBuffer(nil)
 		cmd := exec.Command("vagrant", "destroy", "-f")
 		cmd.Dir = serverDir
@@ -285,7 +297,7 @@ func (c *decommisionCommand) Execute() {
 		cmd.Stderr = b
 		err := cmd.Run()
 		if err != nil {
-			c.Errf("Could not get destroy vagrant server %v: %v (stdout/err: %v)", name, err, b.String())
+			c.Errf("Could not get destroy vagrant server %v: %v (stdout/err: %v)", label, err, b.String())
 			continue
 		}
 		err = os.RemoveAll(serverDir)
@@ -305,16 +317,16 @@ type machineInfo struct {
 	DecommissionTag string
 }
 
-func vagrantfile(s *Vagrant, decommissionTag string) ([]byte, error) {
+func vagrantfile(s *Vagrant, label string, decommissionTag string) ([]byte, error) {
 	b := bytes.NewBuffer(nil)
 	fmt.Fprintf(b, "Vagrant.configure(2) do |config|\n")
 	box, err := s.Box.Render(nil)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Fprintf(b, "	# decomissiontag: %v\n", decommissionTag)
+	fmt.Fprintf(b, "	# decommissiontag: %v\n", decommissionTag)
 	fmt.Fprintf(b, "	config.vm.box = \"%v\"\n", box)
-	fmt.Fprintf(b, "	config.vm.define \"%v\"\n", s.Name)
+	fmt.Fprintf(b, "	config.vm.define \"%v\"\n", label)
 	fmt.Fprintf(b, "	config.vm.provider \"virtualbox\" do |v|\n")
 	if s.Memory > 0 {
 		fmt.Fprintf(b, "		v.memory = \"%v\"\n", s.Memory)
@@ -322,7 +334,7 @@ func vagrantfile(s *Vagrant, decommissionTag string) ([]byte, error) {
 	if s.CPUs > 0 {
 		fmt.Fprintf(b, "		v.cpus = %v\n", s.CPUs)
 	}
-	fmt.Fprintf(b, "		v.name = \"%v\"\n", s.Name)
+	fmt.Fprintf(b, "		v.name = \"%v\"\n", label)
 	fmt.Fprintf(b, "	end\n")
 	for _, template := range s.PrivateIPs {
 		ipString, err := template.Render(nil)
@@ -343,7 +355,7 @@ func vagrantfile(s *Vagrant, decommissionTag string) ([]byte, error) {
 
 		parts := strings.Split(sharedDir, ":")
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("Incorrect shared folder value '%v'. Should be in the form '<hostdir>:<guestdir>'.", s)
+			return nil, fmt.Errorf("incorrect shared folder value '%v'. Should be in the form '<hostdir>:<guestdir>'", s)
 		}
 		hostPath := parts[0]
 		guestPath := parts[1]

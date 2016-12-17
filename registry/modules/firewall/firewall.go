@@ -221,7 +221,6 @@ func buildCommand(c *schema.CalculateCommandsArgs, isIPV6 bool, modules []*Firew
 	}
 
 	targetJumps["INPUT"] = []rule{}
-	//cmd.TargetJumps["FORWARD"] = []rule{}
 	if len(targetChains) > 0 {
 		inputRules := make([]rule, 0, len(targetChains))
 

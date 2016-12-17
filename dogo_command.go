@@ -181,7 +181,6 @@ func (c *packageCommand) Execute() {
 	connection := c.connection
 	if connection == nil || (c.local && len(c.tunnels) > 0) {
 		if c.resource.Manager.Provision != nil {
-			//c.Logf("Provisioning %v (%v)\n", c.resource.Name, c.resource.Manager.Name)
 			err := c.resource.Manager.Provision(c.resource.ManagerGroup, c.resource.Resource, c)
 			if err != nil {
 				c.Err(err)

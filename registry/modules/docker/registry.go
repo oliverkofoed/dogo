@@ -41,21 +41,6 @@ func StartDockerRegistry(logLevel string) error {
 		config.Log.AccessLog.Disabled = true
 		log.SetLevel(log.InfoLevel)
 
-		/*level, err := log.ParseLevel(logLevel)
-		if err != nil {
-			panic(err)
-		}
-		//log.SetOutput(nil)
-		//log.Infof("baaah")
-		log.SetLevel(level)
-		log.SetFormatter(&log.TextFormatter{
-			TimestampFormat: time.RFC3339Nano,
-		})
-		// inject a logger into the uuid library. warns us if there is a problem
-		// with uuid generation under low entropy.
-		uuid.Loggerf = context.GetLogger(ctx).Warnf
-		*/
-
 		app := handlers.NewApp(ctx, config)
 		app.RegisterHealthChecks()
 		handler := alive("/", app)

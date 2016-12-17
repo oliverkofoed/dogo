@@ -25,7 +25,7 @@ func ConsoleUIInterupt(fn func()) {
 	}
 	statusPrinterInteruptLock.Unlock()
 	waiting := true
-	for waiting { // it's late, i'm tired, i'm doing the easy way.
+	for waiting {
 		time.Sleep(time.Millisecond * 100)
 		statusPrinterInteruptLock.Lock()
 		waiting = len(statusPrinterInteruptQueue) > 0
@@ -151,7 +151,6 @@ func (c *consoleUI) printStatus(cmd *Command, level int, terminalCols int, spinC
 	characters := 0
 	for i := 0; i != level; i++ {
 		if i == level-1 {
-			//tprint(fmt.Sprintf("(%v)", t.State))
 			if cmd.anyError {
 				tprint(term.Red+"! ", &characters)
 			} else {

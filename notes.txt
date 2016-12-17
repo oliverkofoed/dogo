@@ -85,6 +85,7 @@ possible improvements
 NOW:
 	[ ] continues integration test (gitlab.com) 
 		[ ] passing passphrase for vault file via ENV, or ?
+	[ ] Something to remove unused docker images and containers
 
 Release
 	[ ] Go over code, fix glaring issues

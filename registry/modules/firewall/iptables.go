@@ -121,7 +121,7 @@ func (i *iptables) sync(table string, prefix string, targetChains map[string]*ch
 	for chainName, jumps := range targetJumps {
 		chain, found := currentChains[chainName]
 		if !found {
-			return fmt.Errorf("Could not locate the %v chain.", chainName)
+			return fmt.Errorf("could not locate the %v chain", chainName)
 		}
 
 		// ensure ensure our jumps are the last part of the chain.

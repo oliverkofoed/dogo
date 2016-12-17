@@ -106,8 +106,8 @@ func (c *execCommand) Execute() {
 func OSExec(owner *Command, dir string, logPrefix string, program string, args ...string) error {
 	cmd := exec.Command(program, args...)
 	cmd.Dir = dir
-	cmd.Stdout = NewLogFuncWriter(logPrefix, owner.Logf) //&commandLogWriter{command: owner, logPrefix: logPrefix, err: false, buf: bytes.NewBuffer(nil)}
-	cmd.Stderr = NewLogFuncWriter(logPrefix, owner.Errf) //&commandLogWriter{command: owner, logPrefix: logPrefix, err: true, buf: bytes.NewBuffer(nil)}
+	cmd.Stdout = NewLogFuncWriter(logPrefix, owner.Logf)
+	cmd.Stderr = NewLogFuncWriter(logPrefix, owner.Errf)
 	return cmd.Run()
 }
 
@@ -152,8 +152,6 @@ func (w *commandLogWriter) Write(p []byte) (n int, err error) {
 			// grab the string
 			str := string(arr[:lineEnds])
 
-			//str = fmt.Sprintf("%v (%v, %v, %v)", str, len(str), len([]byte(str)), []byte(str))
-
 			// move buffer past string
 			w.buf = bytes.NewBuffer(arr[lineEnds+lineExtra:])
 
@@ -163,21 +161,6 @@ func (w *commandLogWriter) Write(p []byte) (n int, err error) {
 			break
 		}
 	}
-	/*bytes :=
-
-
-	str := string(p)
-
-	// remove trailing newlines
-	for len(str) > 0 {
-		end := len(str) - 1
-		last := str[end]
-		if last == 10 || last == 13 {
-			str = str[:end]
-		} else {
-			break
-		}
-	}*/
 
 	return len(p), nil
 }

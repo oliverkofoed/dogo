@@ -82,13 +82,6 @@ var Manager = schema.ResourceManager{
 		g := group.(*LinodeGroup)
 		s := resource.(*Linode)
 
-		// overall linode todo
-		// X get IP and save it
-		// X fast exit for existing machine
-		// x ssh keys
-		// - findunused + decommission
-		// x destroy machien if fails during creation
-
 		// get the api key.
 		apikey, err := g.APIKey.Render(nil)
 		if err != nil {

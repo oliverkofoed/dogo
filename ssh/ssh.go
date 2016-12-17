@@ -30,11 +30,6 @@ func NewSSHConnection(host string, port int, username string, password string, p
 		authMethods = append(authMethods, ssh.Password(password))
 	} else if privatekey != nil {
 		// authenticate with private key?
-		/*buf, err := ioutil.ReadFile(keyFile)
-		if err != nil {
-			return nil, fmt.Errorf("Could not read keyfile at %v. Error: %v", keyFile, err)
-		}
-		*/
 		key, err := ssh.ParsePrivateKey(privatekey)
 		if err != nil {
 			return nil, fmt.Errorf("Could not parse keyfile. Error: %v", err)

@@ -46,6 +46,7 @@ type PackageModule struct {
 	OriginalLocation string
 }
 
+// Command is a command added to a dogo configuration file
 type Command struct {
 	Local    bool       `description:"Should the command be executed on the machine running dogo? The default is false, which means run the command on the remote server"`
 	Tunnels  []string   `description:"Tunnels required to execute this command. They'll be avalaible in the 'tunnels' template variable."`
@@ -53,10 +54,12 @@ type Command struct {
 	Target   Template   `description:"Which server(s) to run this command against. Valid values are either '' (the first server), '*' (all servers) or 'servername' (just that server)."`
 }
 
+// Tunnel represents information about a socket tunnel (typically SSH tunnel)
 type Tunnel struct {
 	Port int `required:"true" description:"the local port to to use for the tunnel"`
 }
 
+// ServerConnection is a connection to a ServerResource
 type ServerConnection interface {
 	Shell(stderr, stdout io.Writer, stdin io.Reader, width, height int) error
 	ExecutePipeCommand(command string, pipesFunc func(reader io.Reader, errorReader io.Reader, writer io.Writer) error) error
@@ -66,6 +69,7 @@ type ServerConnection interface {
 	Close() error
 }
 
+// Resource represents a resource in a deployment infrastructure, such as a server or load balancer or firewall
 type Resource struct {
 	Name         string
 	Manager      *ResourceManager
@@ -76,6 +80,7 @@ type Resource struct {
 	Modules      map[string]interface{}
 }
 
+// ServerResource is a resource we can connect via SSH
 type ServerResource interface {
 	OpenConnection() (ServerConnection, error)
 }

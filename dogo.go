@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"strings"
@@ -195,16 +197,8 @@ var DogoVaultCommand = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Usage()
 	},
-	/*Long: `Start one or more tunnels from the local machine to machines in the remote environment.
-
-	Example: dogo tunnel prod.web_1
-
-	Valid TUNNELQUERY values:
-	"env"                   -> Start one of each tunnel. Useful for just reaching one of each component type
-	"env.*"                 -> Start all tunnels to the environment
-	"env.server"            -> Start all tunnels on the given server
-	"env.tunnelname"        -> Start the tunnels with the given name across all servers
-	"env.server.tunnelname" -> Start the given tunnel on the specific server`,*/
+	Example: "dogo vault list",
+	Long: `Manage a secret values vault. If no vault is given, defaults to 'secrets.vault'`,
 }
 
 // DogoVaultCreateCommand represents the 'dogo vault create' command
@@ -228,15 +222,20 @@ var DogoVaultListCommand = &cobra.Command{
 				excerpt := ""
 				switch e.Type {
 				case vault.EntryTypeString:
-					str, err := v.GetString(e.Key)
+					orgStr, err := v.GetString(e.Key)
 					if err != nil {
 						return err
 					}
-					str = strings.Replace(str, "\n", "\\n", -1)
+					str := strings.Replace(orgStr, "\n", "\\n", -1)
 					if len(str) > 30 {
 						str = str[:27] + "..."
 					}
 					excerpt = "\"" + str + "\""
+
+					// add sha256
+					hasher := sha256.New()
+					hasher.Write([]byte(orgStr))
+					excerpt = excerpt + ", sha256:" + hex.EncodeToString(hasher.Sum(nil))
 				case vault.EntryTypeBytes:
 					bytes, err := v.GetBytes(e.Key)
 					if err != nil {
@@ -247,6 +246,11 @@ var DogoVaultListCommand = &cobra.Command{
 					} else {
 						excerpt = fmt.Sprintf("%X", bytes)
 					}
+
+					// add sha256
+					hasher := sha256.New()
+					hasher.Write(bytes)
+					excerpt = excerpt + ", sha256:" + hex.EncodeToString(hasher.Sum(nil))
 				}
 				fmt.Println(e.Key + " (" + e.Type.String() + ": " + excerpt + ")")
 			}

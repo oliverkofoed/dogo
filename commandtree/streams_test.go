@@ -19,18 +19,7 @@ func TestStream(t *testing.T) {
 
 	root := NewRootCommand("tesing remote transfer")
 	root.Add("print", NewExecCommand("", "", "", "echo", "hi there")).AsCommand().Add("hi below", &PrintMachineCommand{})
-	/*s := &SleepCommand{Duration: time.Second}
-	s2 := &SleepCommand{Duration: time.Second}
-	root.Add("first sleep", s)
-	s.Add("secondSleep", s2)*/
 
-	fmt.Println("Hello")
-	//fmt.Println("yousa")
-	//fmt.Println("boosa")
-
-	//root := commandtree.NewRootCommand("Get Agent State")
-	//outer := commandtree.NewRootCommand("Get Agent State")
-	//root.Add("get agent state", &registry.GetStateCommand{})
 	root.Add("print", &PrintMachineCommand{})
 	root.Add("sleep", &SleepCommand{Duration: 0 * time.Second}).AsCommand().Add("sleepmore", &SleepCommand{Duration: 0 * time.Second})
 
@@ -57,8 +46,6 @@ func TestStream(t *testing.T) {
 		}
 	}()
 
-	fmt.Println("BEFORE")
 	ConsoleUI(newRoot)
-	fmt.Println("DONE")
-	//wg.Wait()
+	fmt.Println("done.")
 }
