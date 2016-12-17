@@ -1,0 +1,100 @@
+possible improvements
+[x] Move away from JSON between client and agent (check: https://github.com/alecthomas/go_serialization_benchmarks)
+[x] Make it possible to stream status while agent does "getstatus".
+[x] agent.getstate can use tasks instead of waitgroup.
+[x] Stream via Gob and allow streaming of inprogresss messages.
+[x] Generate rules for firewall
+[x] Make docker push/pull not fuckup status printer.
+[x] Implement docker management
+	[x] --restart: always
+[x] Local server. (run via local mac!)
+[x] Fix TODOs
+[x] .dogocache folder
+	[x] .dogocache/registry
+[x] fix overdeleting when running "dogo build" in projectfireflies
+[x] instead of packges = ["ssh","ffds","fdsfds"]: package "firefliesserver" {}
+[x] parse tunnels
+[x] parse before_deploy/after_deploy.
+[x] Print Log in ConsoleUI: print a tree showing errors after OR only print thigns that have errors.
+	[x] ip6tables
+[x] run commands before_deploy and after_deploy
+[x] iptables kills docker (?)
+	[x] save firewall to disk (write command)
+	[x] default policy for input and forward chain = drop. (also ip6)
+	[x] ip6 support
+[x] env-command [command]
+	dogo dev migrate [server]
+	dogo dev nodetoolring [(implied first server)|server|*]
+[x] env-command ssh
+[x] vagrant provisioner
+[x] tunnels :-D
+[x] nicer exit from dogo dev ssh box
+[x] decomission
+[x] template variables on servers (for public_ip = "{{self.networkinterfaces[self.public_ip][0]}}")
+[x] fails if docker is not installed
+[x] vagrant shold only download a box in one thread, or it fails (add some locking thing)
+[x] command => commands
+[x] multiple ips for tunnels
+[x] target for deploymenthook.
+[x] migrate cockroachdb
+[x] check if cockroach cluster works.
+[x] maybe change to "dogo deploy dev", "dogo ssh dev.web", ...
+[x] switch to spf13/corbra
+[x] Vault 
+	dogo vault create somefilename strength (creates a vault at somefilename)
+	dogo vault list (asks for password and lists all files/keys in vault)
+	dogo vault remove key
+	dogo vault set key value 
+	dogo vault setfile key file 
+	dogo vault get key 
+	dogo vault getfile key (bytestreaim, should pipe to file)
+[x] template usage of vault.
+[x] asking for password while something is printing all over the place.
+	[x] getOpenVault should keep an internal cache of open vaults.
+[x] file module
+	[x] file module should create entire path up to file /this/that/whatever
+[x] linode
+
+	in the future
+	[ ] dogo ssh dev.machine.<dockercontainer> (ssh into a docker container) (ya?)
+	[ ] "dogo syntax": shows syntax for config files, and possible elements
+	[ ] "dogo printcontext dev.server" prints full template context for the given server
+	[ ] "dogo deploy --dryrun" some sort of "dryrun" thing that prints out the state everything will be in after runnin all the commands
+	[ ] Virtualbox resource
+	[ ] persist iptable rules on coreos (and others?)
+	[ ] restructure registry to have "import _ /modules/blah/buoh" (so we can make compile time fast by making that small, could use to make testmodule v. fast)
+	[ ] What happens when deploying as a non-root user that can't sudo either.
+	[ ] autocomplete for commands: dogo ssh d[tab].we[tab]
+	[ ] dogo tool go build (will run go build locally, if go installed locally, otherwise will run go build in docker container)
+
+	general
+	[ ] Documentation
+	[ ] vendorize all dependencies
+	[ ] cleanup code and lint errors
+	[ ] Management of secrets?
+	[ ] package up for release on github.com/oliverkofoed/dogo
+	
+	resources
+	[ ] digitalocean
+
+	Modules
+	[ ] NTP
+	[ ] Dogo: Collect Ram, CPU, Disk
+	[ ] SSH (configure passwordless, fail2ban, etc..)
+	
+NOW:
+	[ ] continues integration test (gitlab.com) 
+		[ ] passing passphrase for vault file via ENV, or ?
+
+Release
+	[ ] Go over code, fix glaring issues
+	[ ] Remove APIkeys and vault.
+	[ ] Sample directory for a simple setup.
+	[ ] Documentation
+
+[.] Port Fireflies
+	x development
+	- telegraf
+	- release
+
+[ easy local development ] => [ local deployment ] => [ remote deployment ] => [ CI Environment Tests ]

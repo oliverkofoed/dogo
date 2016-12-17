@@ -1,0 +1,181 @@
+environment "dev" {
+	tunnel_offset = 10000
+	//after_deployment "migrate" {}   # run migrate after deployment (only important for first run)
+	//after_deployment "starttunnels" {}   # run migrate after every deployment
+
+	/*localhost {
+		server "localhost" {
+			datacenter = "local"
+			address = "192.168.100.9"
+			//package "webserver" {}
+			//package "memcached" {}
+			package "ssh" {}
+			package "developmentmachine" {} 
+			firewall {
+				skip = true
+			}
+		}
+	}*/
+	vagrant {
+		DecommisionTag = "vagrantdev"
+		/*server "db" {
+			box = "ubuntu/trusty64"
+			datacenter = "local"
+			address="0.0.0.0"
+			//package "webserver" {}
+			//package "memcached" {}
+			package "ssh" {}
+			package "developmentmachine" {} 
+		}
+		server "web2" {
+			count = 1
+			box = "ubuntu/trusty64"
+			datacenter = "local"
+			privateips = ["192.162.100.{{20+int(self.instanceid)}}", "192.162.200.{{20+int(self.instanceid)}}"]			
+			address="0.0.0.0"
+			thing = "{{self.networkinterface.eth0[0]}}"
+			//package "webserver" {}
+			package "memcached" {}
+			package "webserver" {}
+			package "ssh" {}
+			package "developmentmachine" {} 
+		}*/
+	}
+	/*digitalocean {
+		apikey= "thisthat"
+		decomission_tag= "a89fd89saf9dsa"
+
+		server "someserver"{
+			//...
+		}
+	}
+	/*server "virtualbox" {
+		image = "http://someurl.com/ubutu.ova"
+		ram = 1024
+		count = 2
+		networkInterfaceCount = 2
+		shares = [
+			"/user/share:/data/share"
+		]
+		datacenter = "local"
+		address = "192.168.100.2"
+		package "webserver" {}
+		package "memcached" {}
+		package "ssh" {}
+		package "developmentmachine" {} 
+	}/*
+	server "vagrant2" {
+		datacenter = "local"
+		address = "192.168.100.2"
+		package "webserver" {}
+		package "memcached" {}
+		package "ssh" {}
+		package "developmentmachine" {} 
+	}/*
+	server "vagrant3" {
+		datacenter = "local"
+		address = "192.168.100.3"
+		package "webserver" {}
+		package "memcached" {}
+		package "ssh" {}
+	}
+	/*localdns "projectfireflies.dev" {
+		ip = "192.168.100.3"
+	}*/
+	/*post_deploy {
+		command = "autogo2" # run autogo in the folder after deployment
+	}*/
+}
+
+environment "prod" {
+	linode {
+		decommissiontag = "dogodev"
+		apikey = "RQOLQAi4CuIjVc2MCsLZTagOLEK3opF6ycXj4hI3bJ08hzptHJyHmmT7NaleckH3"
+
+
+		server "web12" {
+			datacenter = "dallas"
+			plan = "Linode 2048/1cores/2048mb/24gb/2000xfer"
+			distribution = "Ubuntu 16.04 LTS"
+			disks="swap:256"
+			kernel="Latest 64 bit (4.8.6-x86_64-linode78)"
+			privateips = 1
+
+			sshpublickey = "vault:secrets.vault:linode_rsa.pub"
+			sshprivatekey = "vault:secrets.vault:linode_rsa"
+			package "ssh" {}
+		}
+	}
+
+	linode {
+		decommissiontag = "dotdogo"
+		apikey = "RQOLQAi4CuIjVc2MCsLZTagOLEK3opF6ycXj4hI3bJ08hzptHJyHmmT7NaleckH3"
+
+		server "web10" {
+			datacenter = "dallas"
+			plan = "Linode 2048/1cores/2048mb/24gb/2000xfer"
+			distribution = "Ubuntu 16.04 LTS"
+			disks="swap:256"
+			kernel="Latest 64 bit (4.8.6-x86_64-linode78)"
+			privateips = 1
+
+			sshpublickey = "vault:secrets.vault:linode_rsa.pub"
+			sshprivatekey = "vault:secrets.vault:linode_rsa"
+			package "ssh" {}
+		}
+	}
+}
+
+package "developmentmachine" {
+	command "startautogo" { # general
+		local = true
+		commands = ["cd components/firefliesserver && autogo"]
+	}
+	command "starttunnels" { # general
+		local = true
+		commands = ["dogo dev tunnel"]
+	}
+	command "migrate" {
+		local = true
+		tunnels = ["web"]
+		command = "echo tunnel is {{tunnel.web}}"
+	}
+}
+
+package "webserver" {
+	tunnel "web" {
+		port = 80
+	}
+	firewall {
+		port = 80
+	}
+	file {
+		remotepath = "/home/vagrant/somefile.txt"
+		file = "notes.txt"
+	}
+	docker {
+		name = "webserver"
+		folder = "sample_project/components/webserver"
+		command = ""
+		options = [
+			"-p 80:80",
+			"-e SECRET={{vaultstring(\"secrets.vault\",\"websecret\")}}",
+			"-e MEMCACHED={{range server := resourcesbypackage.memcached }},{{ if server.datacenter == self.datacenter }}{{server.address}}{{else}}{{server.address}}{{end}}{{end}}"
+		]
+	}	
+}
+
+package "memcached" {
+	tunnel "memcached" {
+		port = 11211
+	}
+	firewall {
+		port = 11211
+		from = "{{range server := resourcesbypackage.memcached }}{{ if server.datacenter == self.datacenter }}{{server.address}}{{else}}{{server.address}}{{end}},{{end}}"
+	}
+	docker {
+		name = "memcached"
+		image = "memcached:alpine"
+		options = ["-p 11211:11211"]
+	}
+}

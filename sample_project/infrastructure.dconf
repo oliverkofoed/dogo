@@ -1,0 +1,69 @@
+environment "dev" {
+	server "localhost" { 
+		deploy = ["website","memcache"]
+		firewall {
+			skip = true
+		}
+	}
+	post_deploy {
+		command = "autogo" # run autogo in the folder after deployment
+	}
+}
+
+environment "prod" {
+	server "10.2.3.4" { 
+		deploy = ["ssh", "webserver", "memcached"]
+		datacenter = "newyork"
+	}
+	server "10.2.3.5" { 
+		deploy = ["ssh", "memcached"]
+		datacenter = "sanfrancisco"
+	}
+}
+
+package "ssh" {
+	firewall {
+		port = 22
+		from = ["*"]
+		interface = "$(self.public_interface)"
+	}
+}
+
+package "webserver" {
+	tunnel "Webserver" {
+		port = 8080
+	}
+	firewall {
+		port = 80
+		from = ["*"]
+		interface = "$(self.public_interface)"
+	}
+	docker {
+		folder = "components/webserver"
+		command = ""
+		options = [
+			"-p 80:80",
+			"-e MEMCACHED={% for server in servers('memcached') %}{% if server.datacenter == self.datacenter %}{{ server.public_ip }}{% else %}{{ server.public_ip }}{% end %} }"
+		]
+	}
+}
+
+package "memcached" {
+	tunnel "Memcached" {
+		port = 11211
+	}
+	firewall {
+		port = 11211
+		from = ["webserver"]
+		interface = "{{ self.public_interface }}"
+	}
+	firewall {
+		port = 11211
+		from = ["webserver"]
+		interface = "{{ self.private_interface }}"
+	}
+	docker {
+		image = "memcached:alpine"
+		options = ["-p 11211:11211"]
+	}
+}

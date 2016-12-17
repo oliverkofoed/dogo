@@ -1,0 +1,11 @@
+_Store
+.DS_Store
+.AppleDouble
+.LSOverride
+.testtemporaryfile
+.testvault.vault
+.dogocache
+/dogo
+/agent/.build/*
+/sample_project/components/webserver
+

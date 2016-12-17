@@ -1,0 +1,9 @@
+environment "dev" {
+
+}
+
+package "ssh" {
+	firewall {
+		port = 22
+	}
+}
