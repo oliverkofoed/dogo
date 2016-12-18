@@ -113,7 +113,6 @@ var Manager = schema.ResourceManager{
 			decoder := snobgob.NewDecoder(bytes.NewReader(b))
 			if err := decoder.Decode(info); err == nil {
 				if err := ssh.WaitForSSH(info.PublicIPs[0], 22, "root", "", privateKey, time.Millisecond*200); err == nil {
-					//fmt.Println("reusing cached info.", info)
 					s.info = info
 					return nil
 				}
@@ -197,7 +196,7 @@ var Manager = schema.ResourceManager{
 			if ip.ISPUBLIC == 1 {
 				info.PublicIPs = append(info.PublicIPs, ip.IPADDRESS)
 			} else {
-				info.PrivateIPs = append(info.PublicIPs, ip.IPADDRESS)
+				info.PrivateIPs = append(info.PrivateIPs, ip.IPADDRESS)
 			}
 		}
 
@@ -533,6 +532,18 @@ func (a *linodeAccount) create(s *Linode, label string, l schema.Logger, rootPas
 		return err
 	}
 
+	// create private ips for the machine
+	if s.PrivateIPs < 0 || s.PrivateIPs > 3 {
+		return fmt.Errorf("you can only have 0-3 private ips, not %v", s.PrivateIPs)
+	}
+	for i := 0; i < s.PrivateIPs; i++ {
+		l.Logf(" - adding private ip #%v", i+1)
+		err = a.client.linodeIPAddPrivate(linodeID)
+		if err != nil {
+			return err
+		}
+	}
+
 	// create the disks.
 	jobs := make([]createDiskJob, 0, 0)
 	for _, disk := range disks {
@@ -572,18 +583,6 @@ func (a *linodeAccount) create(s *Linode, label string, l schema.Logger, rootPas
 	_, err = a.client.linodeConfigCreate(linodeID, kernelID, dist.LABEL, "", 0, disklist, "paravirt", "default", 1, "", false, true, true, true, true, true)
 	if err != nil {
 		return err
-	}
-
-	// create private ips for the machine
-	if s.PrivateIPs < 0 || s.PrivateIPs > 3 {
-		return fmt.Errorf("you can only have 0-3 private ips, not %v", s.PrivateIPs)
-	}
-	for i := 0; i < s.PrivateIPs; i++ {
-		l.Logf(" - adding private ip #%v", i+1)
-		err = a.client.linodeIPAddPrivate(linodeID)
-		if err != nil {
-			return err
-		}
 	}
 
 	// boot the machine

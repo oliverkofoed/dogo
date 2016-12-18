@@ -3,7 +3,7 @@ environment "dev" {
 	//after_deployment "migrate" {}   # run migrate after deployment (only important for first run)
 	//after_deployment "starttunnels" {}   # run migrate after every deployment
 
-	/*localhost {
+	localhost {
 		server "localhost" {
 			datacenter = "local"
 			address = "192.168.100.9"
@@ -15,7 +15,7 @@ environment "dev" {
 				skip = true
 			}
 		}
-	}*/
+	}
 	vagrant {
 		DecommisionTag = "vagrantdev"
 		/*server "db" {

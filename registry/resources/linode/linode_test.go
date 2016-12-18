@@ -22,6 +22,7 @@ func TestLinode(t *testing.T) {
 		Distribution: testmodule.MockTemplate("Ubuntu 16.04 LTS"),
 		Disks:        testmodule.MockTemplate("swap:256"),
 		Kernel:       testmodule.MockTemplate("Latest 64 bit (4.8.6-x86_64-linode78)"),
+		PrivateIPs:   1,
 		SSHPrivateKey: testmodule.MockFileTemplate([]byte(`-----BEGIN RSA PRIVATE KEY-----
 MIIEogIBAAKCAQEAzgJ0Mz3EncZHIbUD3q+EWW8zPA8D8+Eu0zbdwzOGUKLsXST9
 gavy0UhSgDRT86EmnYPd7s9Di8EkVRdy1qffdiKeQffZMad/gr8a8bplI7Ut0IkT

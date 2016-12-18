@@ -12,6 +12,8 @@ import (
 )
 
 func dogoSSH(config *schema.Config, environment *schema.Environment, target string) error {
+	setTemplateGlobals(config, environment)
+
 	// find server
 	var targetServer schema.ServerResource
 	var targetResource *schema.Resource

@@ -21,6 +21,7 @@ import (
 	"github.com/oliverkofoed/dogo/commandtree"
 	"github.com/oliverkofoed/dogo/neaterror"
 	"github.com/oliverkofoed/dogo/registry/modules/firewall"
+	"github.com/oliverkofoed/dogo/registry/utilities"
 	"github.com/oliverkofoed/dogo/schema"
 	"github.com/oliverkofoed/dogo/snobgob"
 )
@@ -71,7 +72,9 @@ var Manager = schema.ModuleManager{
 		}
 
 		// list containers
-		containers, err := client.ContainerList(context.Background(), types.ContainerListOptions{All: true})
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		containers, err := client.ContainerList(ctx, types.ContainerListOptions{All: true})
 		if err != nil {
 			return nil, fmt.Errorf("Could not list Docker Containers. Error: %v", err)
 		}
@@ -316,7 +319,7 @@ func (c *installDockerCommand) Execute() {
 	cmd := exec.Command("/bin/bash", "-c", installCommand)
 	cmd.Stdout = commandtree.NewLogFuncWriter(" - ", c.Logf)
 	cmd.Stderr = commandtree.NewLogFuncWriter(" - ", c.Logf)
-	err := cmd.Run()
+	err := utilities.MachineExclusive(cmd.Run)
 	if err != nil {
 		c.Err(err)
 		return

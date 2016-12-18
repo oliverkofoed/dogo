@@ -100,20 +100,23 @@ func newTemplateSource() *templateSource {
 	})
 	templateSet.AddGlobalFunc("lookup", func(a jet.Arguments) reflect.Value {
 		//THIS METHOD IS A TEMPORARY WORKAROUND METHOD WHILE WE WAIT FOR https://github.com/CloudyKit/jet/issues/41
-		a.RequireNumOfArguments("int", 2, 2)
+		a.RequireNumOfArguments("lookup", 2, 2)
 
 		i := a.Get(1)
 		index := int64(0)
 		if i.Kind() == reflect.Int64 {
 			index = i.Int()
+		} else if i.Kind() == reflect.Float64 {
+			index = int64(i.Float())
+		} else {
+			panic(fmt.Errorf("argument #1 to template function lookup(arr, idx) must be an integer. was: %v", i.Kind()))
 		}
 
 		v := a.Get(0)
 		if v.Kind() == reflect.Slice {
 			return v.Index(int(index))
 		}
-
-		panic(fmt.Sprintf("bad!"))
+		panic(fmt.Errorf("argument #0 to template function lookup(arr, idx) must be an array (golang slice)"))
 	})
 
 	return &templateSource{
