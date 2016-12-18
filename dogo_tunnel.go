@@ -67,6 +67,8 @@ func (x sortByTunnelAndServer) Less(i, j int) bool {
 }
 
 func dogoTunnel(config *schema.Config, environment *schema.Environment, query string) {
+	setTemplateGlobals(config, environment)
+
 	parts := strings.Split(query, ".")
 	tunnels := make([]*dogoTunnelInfo, 0, 10)
 

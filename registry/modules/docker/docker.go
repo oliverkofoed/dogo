@@ -325,6 +325,8 @@ func (c *installDockerCommand) Execute() {
 		return
 	}
 
+	c.Logf("docker install sucessfully.")
+
 	// check if actually installed.
 	if _, err = getClient(); err != nil {
 		if err == notInstalledErr {
@@ -335,6 +337,7 @@ func (c *installDockerCommand) Execute() {
 	}
 
 	// persist any firewall rules
+	c.Logf("persisting firewall rules.")
 	firewall.PersistRules(c)
 }
 

@@ -54,11 +54,15 @@ possible improvements
 [x] file module
 	[x] file module should create entire path up to file /this/that/whatever
 [x] linode
+[x] Port Fireflies
+	x development
+	x teleraf
+	x release
 
 	in the future
 	[ ] dogo ssh dev.machine.<dockercontainer> (ssh into a docker container) (ya?)
 	[ ] "dogo syntax": shows syntax for config files, and possible elements
-	[ ] "dogo printcontext dev.server" prints full template context for the given server
+	[ ] "dogo context dev.server" prints full template context for the given server "env.server" or environemt "env"
 	[ ] "dogo deploy --dryrun" some sort of "dryrun" thing that prints out the state everything will be in after runnin all the commands
 	[ ] Virtualbox resource
 	[ ] persist iptable rules on coreos (and others?)
@@ -66,6 +70,7 @@ possible improvements
 	[ ] What happens when deploying as a non-root user that can't sudo either.
 	[ ] autocomplete for commands: dogo ssh d[tab].we[tab]
 	[ ] dogo tool go build (will run go build locally, if go installed locally, otherwise will run go build in docker container)
+		[ ]	search for *.dogo folders up the current tree, so you can use dogo tool in a sub folder
 
 	general
 	[ ] Documentation
@@ -83,6 +88,7 @@ possible improvements
 	[ ] SSH (configure passwordless, fail2ban, etc..)
 	
 NOW:
+	[x] Fix silly issue where it prints the command help when an error occurs (try dogo deploy fdsklafjslkfdj)
 	[ ] continues integration test (gitlab.com) 
 		[ ] passing passphrase for vault file via ENV, or ?
 	[ ] Something to remove unused docker images and containers
@@ -93,9 +99,5 @@ Release
 	[ ] Sample directory for a simple setup.
 	[ ] Documentation
 
-[.] Port Fireflies
-	x development
-	- telegraf
-	- release
 
 [ easy local development ] => [ local deployment ] => [ remote deployment ] => [ CI Environment Tests ]

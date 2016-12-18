@@ -9,7 +9,7 @@ import (
 
 	"io/ioutil"
 
-	"github.com/oliverkofoed/dogo/neaterror" // ensure all gob types are registered
+	"github.com/oliverkofoed/dogo/neaterror"
 	"github.com/oliverkofoed/dogo/registry"
 	"github.com/oliverkofoed/dogo/schema"
 	"github.com/oliverkofoed/dogo/term"
@@ -63,6 +63,7 @@ func main() {
 
 	// run dogo
 	DogoCmd.SilenceErrors = true
+	DogoCmd.SilenceUsage = true
 	if err := DogoCmd.Execute(); err != nil {
 		fmt.Println(neaterror.String("", err, term.IsTerminal))
 		os.Exit(-1)
@@ -198,7 +199,7 @@ var DogoVaultCommand = &cobra.Command{
 		cmd.Usage()
 	},
 	Example: "dogo vault list",
-	Long: `Manage a secret values vault. If no vault is given, defaults to 'secrets.vault'`,
+	Long:    `Manage a secret values vault. If no vault is given, defaults to 'secrets.vault'`,
 }
 
 // DogoVaultCreateCommand represents the 'dogo vault create' command
