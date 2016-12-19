@@ -355,7 +355,7 @@ func (c *startDockerRegistryAndSSHTunnelCommand) Execute() {
 	}
 
 	// ensure the SSH Tunnel is started
-	_, err = c.connection.StartTunnel(registryPort, registryPort, true)
+	_, err = c.connection.StartTunnel(registryPort, registryPort, "", true)
 	if err != nil {
 		c.Errf("Couldn't create tunnel from remote machine to local docker registry: %v", err)
 		return

@@ -62,7 +62,7 @@ type consoleUI struct {
 	root *Command
 }
 
-func ConsoleUI(root CommandNode) {
+func ConsoleUI(root CommandNode) error {
 	c := &consoleUI{
 		root: root.AsCommand(),
 	}
@@ -122,7 +122,9 @@ func ConsoleUI(root CommandNode) {
 		fmt.Println(term.Red + "====================================")
 		fmt.Println(term.Red + fmt.Sprintf("             %v error%v", len(errs), s))
 		fmt.Println(term.Red + "====================================" + term.Reset)
+		return fmt.Errorf("%v errors during run", len(errs))
 	}
+	return nil
 }
 
 func (c *consoleUI) clearTerminalBack(height int) {

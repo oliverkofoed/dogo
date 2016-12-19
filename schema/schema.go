@@ -56,7 +56,8 @@ type Command struct {
 
 // Tunnel represents information about a socket tunnel (typically SSH tunnel)
 type Tunnel struct {
-	Port int `required:"true" description:"the local port to to use for the tunnel"`
+	Port int      `required:"true" description:"the local port to to use for the tunnel"`
+	Host Template `default:"127.0.0.1" description:"The host to connect to, defaults to 127.0.0.1 - you only need this in rare circumstances where the service you're connecting to is not listening on localhost or you want to just the exit servers as a middlemand to another server."`
 }
 
 // ServerConnection is a connection to a ServerResource
@@ -65,7 +66,7 @@ type ServerConnection interface {
 	ExecutePipeCommand(command string, pipesFunc func(reader io.Reader, errorReader io.Reader, writer io.Writer) error) error
 	ExecuteCommand(command string) (string, error)
 	WriteFile(path string, mode os.FileMode, contentLength int64, content io.Reader, sudo bool, progress func(float64)) error
-	StartTunnel(localPort int, remotePort int, reverse bool) (listeningLocalPort int, err error)
+	StartTunnel(localPort int, remotePort int, remoteHost string, reverse bool) (listeningLocalPort int, err error)
 	Close() error
 }
 

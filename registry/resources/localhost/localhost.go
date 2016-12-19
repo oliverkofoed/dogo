@@ -104,7 +104,10 @@ func (c *localhostConnection) WriteFile(path string, mode os.FileMode, contentLe
 	return err
 }
 
-func (c *localhostConnection) StartTunnel(localPort int, remotePort int, reverse bool) (listeningLocalPort int, err error) {
+func (c *localhostConnection) StartTunnel(localPort int, remotePort int, remoteHost string, reverse bool) (listeningLocalPort int, err error) {
+	if remoteHost != "" && remoteHost != "127.0.0.1" {
+		return 0, fmt.Errorf("Can't create localhost tunnel to %v", remoteHost)
+	}
 	if localPort == 0 {
 		localPort = remotePort
 	}

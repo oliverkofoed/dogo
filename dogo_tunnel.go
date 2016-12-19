@@ -26,14 +26,16 @@ const (
 )
 
 type dogoTunnelInfo struct {
-	state         tunnelState
-	name          string
-	resource      *schema.Resource
-	getConnection func(l schema.Logger) (schema.ServerConnection, error)
-	localport     int
-	remoteport    int
-	tunnelstring  string
-	err           error
+	state              tunnelState
+	name               string
+	resource           *schema.Resource
+	getConnection      func(l schema.Logger) (schema.ServerConnection, error)
+	localport          int
+	remoteport         int
+	remotehost         string
+	remotehostTemplate schema.Template
+	tunnelstring       string
+	err                error
 }
 
 func (d *dogoTunnelInfo) SetProgress(progress float64) {}
@@ -85,6 +87,7 @@ func dogoTunnel(config *schema.Config, environment *schema.Environment, query st
 
 	// build list of name, localport, remote port, server
 	usedTunnel := make(map[string]bool)
+	getStateMap := make(map[string][]*dogoTunnelInfo)
 	for _, res := range environment.Resources {
 		if server, ok := res.Resource.(schema.ServerResource); ok {
 			getConnection := func(s schema.ServerResource, res *schema.Resource) func(l schema.Logger) (schema.ServerConnection, error) {
@@ -118,12 +121,22 @@ func dogoTunnel(config *schema.Config, environment *schema.Environment, query st
 
 				for tunnelName, tunnel := range pack.Tunnels {
 					t := &dogoTunnelInfo{
-						name:          tunnelName,
-						resource:      res,
-						localport:     tunnel.Port + portOffset,
-						remoteport:    tunnel.Port,
-						getConnection: getConnection,
+						name:               tunnelName,
+						resource:           res,
+						localport:          tunnel.Port + portOffset,
+						remoteport:         tunnel.Port,
+						remotehostTemplate: tunnel.Host,
+						getConnection:      getConnection,
 					}
+
+					// try to get the tunnel host, if it fails, mark that we'll
+					// try to get the server state before opening any tunnels.
+					host, err := t.remotehostTemplate.Render(nil)
+					if err != nil {
+						getStateMap[res.Name] = append(getStateMap[res.Name], t)
+					}
+					t.remotehost = host
+
 					if len(parts) == 2 { // server.tunnel
 						if res.Name == parts[1] && tunnelName == parts[2] {
 							tunnels = append(tunnels, t)
@@ -153,6 +166,21 @@ func dogoTunnel(config *schema.Config, environment *schema.Environment, query st
 	// sort list of tunnel
 	sort.Sort(sortByTunnelAndServer(tunnels))
 
+	// get any state required by those tunnels.
+	if len(getStateMap) > 0 {
+		root := commandtree.NewRootCommand("Some tunnels require that we get state from remote servers")
+
+		for _, v := range getStateMap {
+			root.Add("Get state: "+environment.Name+"."+v[0].resource.Name, &dogoTunnelGetStateCommand{tunnels: v})
+		}
+
+		r := commandtree.NewRunner(root, 1)
+		go r.Run(nil)
+		if err := commandtree.ConsoleUI(root); err != nil {
+			return
+		}
+	}
+
 	// start a list of workers.
 	usedPort := make(map[int]bool)
 	usedPortLock := sync.Mutex{}
@@ -169,6 +197,12 @@ func dogoTunnel(config *schema.Config, environment *schema.Environment, query st
 					tunnel.state = tunnelStateError
 					break
 				}
+
+				/*tunnelHost, err := tunnel.remotehost.Render(nil)
+				if err != nil {
+					// possibly because we don't have the state
+
+				}*/
 
 				for x := 0; true; x++ {
 					// after 80 tries, we're not going to find an avalible port
@@ -193,7 +227,7 @@ func dogoTunnel(config *schema.Config, environment *schema.Environment, query st
 					}
 
 					// try starting a tunnel
-					port, err := connection.StartTunnel(tunnel.localport, tunnel.remoteport, false)
+					port, err := connection.StartTunnel(tunnel.localport, tunnel.remoteport, tunnel.remotehost, false)
 					if err != nil {
 						tunnel.localport++
 						tunnel.err = err
@@ -222,6 +256,45 @@ func dogoTunnel(config *schema.Config, environment *schema.Environment, query st
 	// wait for completion
 	reader := bufio.NewReader(os.Stdin)
 	_, _ = reader.ReadString('\n')
+}
+
+type dogoTunnelGetStateCommand struct {
+	commandtree.Command
+	tunnels []*dogoTunnelInfo
+}
+
+func (c *dogoTunnelGetStateCommand) Execute() {
+	t := c.tunnels[0]
+	connection, err := t.getConnection(c)
+	if err != nil {
+		c.Err(err)
+		return
+	}
+
+	_, _, success := getState(t.resource, connection, false, c, c)
+	if !success {
+		return
+	}
+
+	// expand templates
+	expandErrors := expandResourceTemplates(t.resource, config)
+	if len(expandErrors) > 0 {
+		for _, err := range expandErrors {
+			c.Err(err)
+		}
+		return
+	}
+
+	for _, t := range c.tunnels {
+		host, err := t.remotehostTemplate.Render(map[string]interface{}{
+			"self": t.resource.Data,
+		})
+		if err != nil {
+			c.Err(err)
+			return
+		}
+		t.remotehost = host
+	}
 }
 
 func printTunnelStatus(environment *schema.Environment, tunnels []*dogoTunnelInfo) {

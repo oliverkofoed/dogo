@@ -258,17 +258,21 @@ func (s *SSHConnection) WriteFile(path string, mode os.FileMode, contentLength i
 	}
 	return err
 }
-func (s *SSHConnection) StartTunnel(localPort int, remotePort int, reverse bool) (listeningPort int, err error) {
+func (s *SSHConnection) StartTunnel(localPort int, remotePort int, remoteHost string, reverse bool) (listeningPort int, err error) {
+	if remoteHost == "" {
+		remoteHost = "127.0.0.1"
+	}
+	//remoteHost = "127.0.0.1"
 	if reverse {
 		if localPort == 0 {
 			return 0, neaterror.New(nil, "the local port can't be %v for reverse tunnels. Must know what to connect to.", localPort)
 		}
-		return tunnel(fmt.Sprintf("127.0.0.1:%v", localPort), fmt.Sprintf("127.0.0.1:%v", remotePort), localPort, net.Dial, s.connection.Listen)
+		return tunnel(fmt.Sprintf("127.0.0.1:%v", localPort), fmt.Sprintf("%v:%v", remoteHost, remotePort), localPort, net.Dial, s.connection.Listen)
 	} else {
 		if remotePort == 0 {
 			return 0, neaterror.New(nil, "the remote port can't be %v for tunnels. Must know what to connect to.", remotePort)
 		}
-		return tunnel(fmt.Sprintf("127.0.0.1:%v", remotePort), fmt.Sprintf("0.0.0.0:%v", localPort), remotePort, s.connection.Dial, net.Listen)
+		return tunnel(fmt.Sprintf("%v:%v", remoteHost, remotePort), fmt.Sprintf("0.0.0.0:%v", localPort), remotePort, s.connection.Dial, net.Listen)
 	}
 	return 0, nil
 }

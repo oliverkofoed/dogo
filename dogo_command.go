@@ -221,12 +221,18 @@ func (c *packageCommand) Execute() {
 		// start tunnels.
 		anyErr := false
 		for n, tun := range c.tunnels {
-			port, err := connection.StartTunnel(0, tun.Port, false)
+			tunnelHost, err := tun.Host.Render(nil)
 			if err != nil {
-				c.Errf("Error starting tunnel to %v:%v. Error message: %v", c.resource.Name, tun.Port, err.Error())
+				c.Err(err)
 				anyErr = true
+			} else {
+				port, err := connection.StartTunnel(0, tun.Port, tunnelHost, false)
+				if err != nil {
+					c.Errf("Error starting tunnel to %v:%v. Error message: %v", c.resource.Name, tun.Port, err.Error())
+					anyErr = true
+				}
+				tunnels[n] = createTunnelInfo(port)
 			}
-			tunnels[n] = createTunnelInfo(port)
 		}
 		if anyErr {
 			return
