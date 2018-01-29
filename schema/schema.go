@@ -62,7 +62,7 @@ type Tunnel struct {
 
 // ServerConnection is a connection to a ServerResource
 type ServerConnection interface {
-	Shell(stderr, stdout io.Writer, stdin io.Reader, width, height int) error
+	Shell(cmd string, stderr, stdout io.Writer, stdin io.Reader, width, height int) error
 	ExecutePipeCommand(command string, pipesFunc func(reader io.Reader, errorReader io.Reader, writer io.Writer) error) error
 	ExecuteCommand(command string) (string, error)
 	WriteFile(path string, mode os.FileMode, contentLength int64, content io.Reader, sudo bool, progress func(float64)) error

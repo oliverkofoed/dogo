@@ -29,6 +29,7 @@ type Command struct {
 	Caption       string
 	State         CommandState
 	monitor       chan *MonitorEvent
+	LogEvent      func(evt *MonitorEvent)
 	LogArray      []*LogEntry
 	anyError      bool
 	Children      []CommandNode
@@ -138,8 +139,12 @@ func (c *Command) log(entry *LogEntry) {
 	c.mutex.Unlock()
 
 	// tell monitor
+	evt := &MonitorEvent{EventType: monitorEventLog, CommandID: c.ID, LogEntry: entry}
 	if c.monitor != nil {
-		c.monitor <- &MonitorEvent{EventType: monitorEventLog, CommandID: c.ID, LogEntry: entry}
+		c.monitor <- evt
+	}
+	if c.LogEvent != nil {
+		c.LogEvent(evt)
 	}
 }
 

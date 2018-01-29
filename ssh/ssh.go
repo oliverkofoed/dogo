@@ -45,9 +45,10 @@ func NewSSHConnection(host string, port int, username string, password string, p
 
 	// connect to server
 	connection, err := ssh.Dial("tcp", fmt.Sprintf("%v:%v", host, port), &ssh.ClientConfig{
-		User:    username,
-		Auth:    authMethods,
-		Timeout: timeout,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // TODO: should implement something better.
+		User:            username,
+		Auth:            authMethods,
+		Timeout:         timeout,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("Failed to connect to SSH on %v:%v. Error: %v", host, port, err)
@@ -88,7 +89,7 @@ func WaitForSSH(host string, port int, username string, password string, private
 	return fmt.Errorf("Could not establish an SSH connection connection in the given time %v. Last error: %v", timeout, lastError)
 }
 
-func (s *SSHConnection) Shell(stderr, stdout io.Writer, stdin io.Reader, width, height int) error {
+func (s *SSHConnection) Shell(cmd string, stderr, stdout io.Writer, stdin io.Reader, width, height int) error {
 	// create a session
 	session, err := s.connection.NewSession()
 	if err != nil {
@@ -112,11 +113,14 @@ func (s *SSHConnection) Shell(stderr, stdout io.Writer, stdin io.Reader, width, 
 	}
 
 	// run shell
-	err = session.Shell()
-	if err != nil {
-		return err
+	if cmd == "" {
+		err = session.Shell()
+		if err != nil {
+			return err
+		}
+		return session.Wait()
 	}
-	return session.Wait()
+	return session.Run(cmd)
 }
 
 func (s *SSHConnection) ExecutePipeCommand(command string, pipesFunc func(reader io.Reader, errorReader io.Reader, writer io.Writer) error) error {
@@ -308,7 +312,8 @@ func tunnel(dialAddress, listenAddress string, dialPort int, dial func(n, addr s
 
 			b, err := dial("tcp", dialAddress)
 			if err != nil {
-				panic(err)
+				a.Close()
+				continue
 			}
 			var wg sync.WaitGroup
 			wg.Add(2)

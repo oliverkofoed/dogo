@@ -79,7 +79,7 @@ func StartDockerRegistry(logLevel string) error {
 				registryStartErr = err
 				return
 			}
-			if !set && !strings.HasPrefix(ln.Addr().String(), "127.0.0.1") {
+			if !set && !strings.HasPrefix(ln.Addr().String(), "127.") {
 				registryAddr = ln.Addr().String()
 				set = true
 			}

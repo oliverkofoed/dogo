@@ -145,7 +145,6 @@ func getCredStore(store string) credentials.Helper {
 var openVaultsLock sync.RWMutex
 var openVaults = make(map[string]*vault.Vault)
 
- 
 func getOpenVaultFile(filename string, key string) ([]byte, error) {
 	v, err := getOpenVault(filename)
 	if err != nil {
@@ -167,15 +166,18 @@ func getOpenVault(filename string) (*vault.Vault, error) {
 	if err != nil {
 		return nil, err
 	}
-	url := "file://" + path
+	url := "https://stored2credentials.dogo" + path
+
+	// only one thread at a time
+	openVaultsLock.Lock()
+	defer openVaultsLock.Unlock()
 
 	// check if we already have this vault.
-	openVaultsLock.Lock()
 	if v, found := openVaults[path]; found {
-		openVaultsLock.Unlock()
+		//openVaultsLock.Unlock()
 		return v, nil
 	}
-	openVaultsLock.Unlock()
+	//openVaultsLock.Unlock()
 
 	// check the file exists
 	if _, err := os.Stat(filename); err != nil && os.IsNotExist(err) {
@@ -191,13 +193,12 @@ func getOpenVault(filename string) (*vault.Vault, error) {
 			key, _ := hex.DecodeString(parts[0])
 			passphrase := pass[len(parts[0])+2:]
 
-			vault, _, err := vault.Open(path, passphrase, key)
+			v, _, err := vault.Open(path, passphrase, key)
 			if err != nil && !strings.Contains(err.Error(), "wrong passphrase") {
 				return nil, err
 			}
-
-			if vault != nil {
-				return vault, nil
+			if v != nil {
+				return v, nil
 			}
 		}
 	}
@@ -208,37 +209,50 @@ func getOpenVault(filename string) (*vault.Vault, error) {
 	}
 
 	// ask for passphrase
+	var v *vault.Vault
 	var passphraseBytes []byte
 	commandtree.ConsoleUIInterupt(func() {
-		fmt.Printf("Please enter passphrase for %v: \n", filename)
-		passphraseBytes, err = terminal.ReadPassword(int(os.Stdin.Fd()))
-		term.MoveUp(1)
-		term.EraseCurrentLine()
+		// check if we already have this vault.
+		//openVaultsLock.Lock()
+		if vx, found := openVaults[path]; found {
+			v = vx
+			//openVaultsLock.Unlock()
+		} else {
+			//openVaultsLock.Unlock()
+			fmt.Printf("Please enter passphrase for %v: \n", filename)
+			passphraseBytes, err = terminal.ReadPassword(int(os.Stdin.Fd()))
+			term.MoveUp(1)
+			term.EraseCurrentLine()
+			if err == nil {
+				fmt.Printf("Opening vault... \n")
+
+				// open vault
+				var key []byte
+				v, key, err = vault.Open(path, string(passphraseBytes), nil)
+				term.MoveUp(1)
+				term.EraseCurrentLine()
+				if err == nil {
+					// store if a credstore is specified
+					if store != nil {
+						store.Delete(url)
+						store.Add(&credentials.Credentials{
+							Secret:    fmt.Sprintf("%X: %v", key, string(passphraseBytes)),
+							Username:  filepath.Base(path),
+							ServerURL: url,
+						})
+					}
+
+					// save the vault in memory for future requests
+					//openVaultsLock.Lock()
+					openVaults[path] = v
+					//openVaultsLock.Unlock()
+				}
+			}
+		}
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	// open vault
-	vault, key, err := vault.Open(path, string(passphraseBytes), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// store if a credstore is specified
-	if store != nil {
-		store.Delete(url)
-		store.Add(&credentials.Credentials{
-			Secret:    fmt.Sprintf("%X: %v", key, string(passphraseBytes)),
-			Username:  filepath.Base(path),
-			ServerURL: url,
-		})
-	}
-
-	// save the vault in memory for future requests
-	openVaultsLock.Lock()
-	openVaults[path] = vault
-	openVaultsLock.Unlock()
-
-	return vault, nil
+	return v, nil
 }

@@ -76,5 +76,5 @@ func dogoSSH(config *schema.Config, environment *schema.Environment, target stri
 	}
 
 	// run a shell
-	return connection.Shell(os.Stderr, os.Stdout, os.Stdin, width, height)
+	return connection.Shell("", os.Stderr, os.Stdout, os.Stdin, width, height)
 }

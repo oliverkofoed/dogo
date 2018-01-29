@@ -72,6 +72,7 @@ possible improvements
 	[ ] dogo tool go build (will run go build locally, if go installed locally, otherwise will run go build in docker container)
 		[ ]	search for *.dogo folders up the current tree, so you can use dogo tool in a sub folder
 	[ ] if an argument is given to dogo vault create, use that for filename. e.g "dogo vault create test.vault"
+	[ ] dogo scp (to copy files/folders to/from systems)
 
 	general
 	[ ] Documentation

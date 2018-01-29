@@ -6,6 +6,7 @@ import (
 	"crypto/sha1"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -27,11 +28,16 @@ import (
 )
 
 var notInstalledErr = errors.New("not installed")
+var cronFile = "/etc/cron.d/dogodocker"
 
 type Docker struct {
 	// which image to run
 	Folder schema.Template
 	Image  schema.Template
+
+	// If running as a cron job
+	Cron     schema.Template
+	CronUser schema.Template
 
 	// how the container should be configured.
 	Name    schema.Template `required:"yes" description:"The container name to use."`
@@ -43,6 +49,7 @@ type state struct {
 	Installed  bool
 	Containers []types.Container
 	Images     []types.ImageSummary
+	Cron       []byte
 }
 
 // Manager is the main entry point to this Dogo Module
@@ -56,6 +63,7 @@ var Manager = schema.ModuleManager{
 		snobgob.Register(&containerCommand{})
 		snobgob.Register(&removeImagesCommand{})
 		snobgob.Register(&installDockerCommand{})
+		snobgob.Register(&writeCronCommand{})
 	},
 	GetState: func(query interface{}) (interface{}, error) {
 		state := &state{Installed: true}
@@ -87,11 +95,25 @@ var Manager = schema.ModuleManager{
 		}
 		state.Images = images
 
+		state.Cron = []byte{}
+		if _, err := os.Stat(cronFile); err == nil {
+			cronfileBytes, err := ioutil.ReadFile(cronFile)
+			if err != nil {
+				return nil, fmt.Errorf("Could not read cron file (%v). Error: %v", cronFile, err.Error())
+			}
+			state.Cron = cronfileBytes
+		} else if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("Could not read cron file (%v). Error: %v", cronFile, err.Error())
+		}
+
 		return state, nil
 	},
 	CalculateCommands: func(c *schema.CalculateCommandsArgs) error {
 		remoteState := c.State.(*state)
 		modules := c.Modules.([]*Docker)
+
+		// the cron commands to be installed on remote machine
+		cronCommands := make([]string, 0)
 
 		// nothing to do,
 		if len(modules) == 0 && !remoteState.Installed {
@@ -151,12 +173,24 @@ var Manager = schema.ModuleManager{
 			if err != nil {
 				return err
 			}
+			containerName, err := module.Name.Render(nil)
+			if err != nil {
+				return err
+			}
 			folder, err := module.Folder.Render(nil)
 			if err != nil {
 				return err
 			}
 			if folder != "" {
 				tag = filepath.Base(folder) + ":latest"
+			}
+			cron, err := module.Cron.Render(nil)
+			if err != nil {
+				return err
+			}
+			cronUser, err := module.CronUser.Render(nil)
+			if err != nil {
+				return err
 			}
 
 			// find the corresponding image currently on the local machine.
@@ -219,72 +253,105 @@ var Manager = schema.ModuleManager{
 				options = append(options, opt)
 			}
 
-			// build the id.
-			h := sha1.New()
-			h.Write([]byte(command))
-			h.Write([]byte(localImage.ID))
-			h.Write([]byte(folder))
-			for _, option := range options {
-				h.Write([]byte(option))
-			}
-			containerVersion := fmt.Sprintf("%x", h.Sum(nil))
-
-			// find the name for the container
-			containerName, err := module.Name.Render(nil)
-			if err != nil {
-				return err
-			}
-			if containerName == "" {
-				return fmt.Errorf("Container must have a name. ")
-			}
-			if _, found := containerNames[containerName]; found {
-				return fmt.Errorf("the container name '%v' is used more than once", containerName)
-			}
-			containerNames[containerName] = true
-
-			// do we need to start the container?
-			startContainer := true
-			stopID := ""
-
-			for _, container := range remoteState.Containers {
-				for _, n := range container.Names {
-					if n == "/"+containerName {
-						stopID = container.ID
-						if value, found := container.Labels["dogo"]; found {
-							if value == containerVersion {
-								if container.State == "running" {
-									startContainer = false
-								} else {
-									c.Logf("will start %v bacause its state is '%v'", containerName, container.State)
-								}
-							}
-						}
-					}
+			if cron != "" {
+				if containerName != "" {
+					return fmt.Errorf("Containers running under Cron should not have a name defined")
 				}
-			}
 
-			if startContainer {
+				// Ensure the image required for the cron job is avaliable on the remote
 				pullTag := ""
 				if !alreadyInRemote {
 					pullTag = fmt.Sprintf("127.0.0.1:%v/%v", registryPort, tag)
 				}
+				if pullTag != "" {
+					remoteRoot.Add("Docker Image: "+pullTag, &containerCommand{
+						PullTag: pullTag,
+					})
+				}
 
+				if cronUser == "" {
+					cronUser = "root"
+				}
+
+				// write the cron command.
 				cmd := bytes.NewBuffer(nil)
+				cmd.WriteString(cron)
+				cmd.WriteString("\t")
+				cmd.WriteString(cronUser)
+				cmd.WriteString("\t")
 				cmd.WriteString("docker run")
-				cmd.WriteString(" --detach")
-				cmd.WriteString(" --label dogo=" + containerVersion)
-				cmd.WriteString(" --name " + containerName)
+				cmd.WriteString(" --rm")
 				for _, opt := range options {
 					cmd.WriteString(" ")
 					cmd.WriteString(opt)
 				}
 				cmd.WriteString(" " + localImage.ID)
 				cmd.WriteString(" " + command)
-				remoteRoot.Add("Docker Container: "+containerName, &containerCommand{
-					PullTag:         pullTag,
-					StopContainerID: stopID,
-					StartCommand:    cmd.String(),
-				})
+				cronCommands = append(cronCommands, cmd.String())
+			} else {
+				// build the id.
+				h := sha1.New()
+				h.Write([]byte(command))
+				h.Write([]byte(localImage.ID))
+				h.Write([]byte(folder))
+				for _, option := range options {
+					h.Write([]byte(option))
+				}
+				containerVersion := fmt.Sprintf("%x", h.Sum(nil))
+
+				// find the name for the container
+				if containerName == "" {
+					return fmt.Errorf("Container must have a name. ")
+				}
+				if _, found := containerNames[containerName]; found {
+					return fmt.Errorf("the container name '%v' is used more than once", containerName)
+				}
+				containerNames[containerName] = true
+
+				// do we need to start the container?
+				startContainer := true
+				stopID := ""
+
+				for _, container := range remoteState.Containers {
+					for _, n := range container.Names {
+						if n == "/"+containerName {
+							stopID = container.ID
+							if value, found := container.Labels["dogo"]; found {
+								if value == containerVersion {
+									if container.State == "running" {
+										startContainer = false
+									} else {
+										c.Logf("will start %v because its state is '%v'", containerName, container.State)
+									}
+								}
+							}
+						}
+					}
+				}
+
+				if startContainer {
+					pullTag := ""
+					if !alreadyInRemote {
+						pullTag = fmt.Sprintf("127.0.0.1:%v/%v", registryPort, tag)
+					}
+
+					cmd := bytes.NewBuffer(nil)
+					cmd.WriteString("docker run")
+					cmd.WriteString(" --detach")
+					cmd.WriteString(" --label dogo=" + containerVersion)
+					cmd.WriteString(" --name " + containerName)
+					for _, opt := range options {
+						cmd.WriteString(" ")
+						cmd.WriteString(opt)
+					}
+					cmd.WriteString(" " + localImage.ID)
+					cmd.WriteString(" " + command)
+					remoteRoot.Add("Docker Container: "+containerName, &containerCommand{
+						PullTag:         pullTag,
+						StopContainerID: stopID,
+						StartCommand:    cmd.String(),
+					})
+				}
 			}
 		}
 
@@ -304,8 +371,42 @@ var Manager = schema.ModuleManager{
 			}
 		}
 
+		// cron commands
+		buf := bytes.NewBuffer(nil)
+		for _, command := range cronCommands {
+			buf.WriteString(command)
+			buf.WriteString("\n")
+		}
+		arr := buf.Bytes()
+		if !bytes.Equal(arr, remoteState.Cron) {
+			if len(arr) == 0 {
+				remoteRoot.Add("Remove "+cronFile, &writeCronCommand{Content: arr})
+			} else {
+				remoteRoot.Add("Update "+cronFile, &writeCronCommand{Content: arr})
+			}
+		}
+
 		return nil
 	},
+}
+
+type writeCronCommand struct {
+	commandtree.Command
+	Content []byte
+}
+
+func (c *writeCronCommand) Execute() {
+	if len(c.Content) == 0 {
+		err := os.Remove(cronFile)
+		if err != nil {
+			c.Errf("Error deleting %v: %v", cronFile, err.Error())
+		}
+	} else {
+		err := ioutil.WriteFile(cronFile, c.Content, 0644)
+		if err != nil {
+			c.Errf("Error writing to %v: %v", cronFile, err.Error())
+		}
+	}
 }
 
 type installDockerCommand struct {
@@ -339,6 +440,8 @@ func (c *installDockerCommand) Execute() {
 	// persist any firewall rules
 	c.Logf("persisting firewall rules.")
 	firewall.PersistRules(c)
+
+	c.Logf("docker installed.")
 }
 
 type startDockerRegistryAndSSHTunnelCommand struct {
@@ -460,11 +563,13 @@ func (c *containerCommand) Execute() {
 	}
 
 	// start the new one.
-	c.Logf("Starting container: " + c.StartCommand)
-	err := commandtree.OSExec(c.AsCommand(), "", " - ", "/bin/bash", "-c", c.StartCommand)
-	if err != nil {
-		c.Errf(err.Error())
-		return
+	if c.StartCommand != "" {
+		c.Logf("Starting container: " + c.StartCommand)
+		err := commandtree.OSExec(c.AsCommand(), "", " - ", "/bin/bash", "-c", c.StartCommand)
+		if err != nil {
+			c.Errf(err.Error())
+			return
+		}
 	}
 }
 

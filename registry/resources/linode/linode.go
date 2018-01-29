@@ -130,6 +130,9 @@ var Manager = schema.ResourceManager{
 
 		// list servers.
 		servers, err := account.listServers(l)
+		if err != nil {
+			return err
+		}
 
 		// create the server if it was not found.
 		server, found := servers[label]
@@ -430,7 +433,7 @@ func (a *linodeAccount) create(s *Linode, label string, l schema.Logger, rootPas
 		for _, p := range plans {
 			avaliablePlans = append(avaliablePlans, planString(&p))
 		}
-		return fmt.Errorf("%'v' is not a valid plan. Avaliable plans: [%v]", wantedPlan, strings.Join(avaliablePlans, ","))
+		return fmt.Errorf("'%v' is not a valid plan. Avaliable plans: [%v]", wantedPlan, strings.Join(avaliablePlans, ","))
 	}
 
 	// find kernel

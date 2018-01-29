@@ -152,7 +152,7 @@ func (c *calculateDeploymentHooksCommand) Execute() {
 		} else {
 			parent = c.afterDeploymentCommands
 		}
-		err := buildPackageCommands(parent, c.config, c.environment, h.CommandName, h.Command, h.CommandPackage, "", c.reuseConnection)
+		err := buildPackageCommands(parent, c.config, c.environment, h.CommandName, h.Command, h.CommandPackage, "", c.reuseConnection, make([]string, 0))
 
 		if err != nil {
 			c.Err(err)

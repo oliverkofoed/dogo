@@ -229,7 +229,7 @@ func buildCommand(c *schema.CalculateCommandsArgs, isIPV6 bool, modules []*Firew
 		inputRules = append(inputRules, rule{"-m", "conntrack", "--ctstate", "INVALID", "-j", "DROP"})               // drop packets that are invalid (FIN/SYN etc flags in bad combinations), since it's .. well, invalid and could single an attack.
 		for _, chainName := range sortKeys(targetChains) {
 			parts := strings.Split(chainName, "_")
-			inputRules = append(inputRules, rule{"-p", parts[1], "-m", "tcp", "--dport", parts[2], "-j", chainName}) // jump to sub-chain for specific protocol+port
+			inputRules = append(inputRules, rule{"-p", parts[1], "-m", parts[1], "--dport", parts[2], "-j", chainName}) // jump to sub-chain for specific protocol+port
 		}
 		inputRules = append(inputRules, rule{"-i", "lo", "-j", "ACCEPT"}) // allow loopback traffic.
 

@@ -29,8 +29,32 @@ func (s *Localhost) OpenConnection() (schema.ServerConnection, error) {
 type localhostConnection struct {
 }
 
-func (s *localhostConnection) Shell(stderr, stdout io.Writer, stdin io.Reader, width, height int) error {
-	return fmt.Errorf("Shell access not supported on localhost.\n(why would you need this? you're already on localhost)")
+func (s *localhostConnection) Shell(cmdStr string, stderr, stdout io.Writer, stdin io.Reader, width, height int) error {
+	// create a session
+	/*session, err := s.connection.NewSession()
+	if err != nil {
+		return fmt.Errorf("Failed to create SSH session: %v", err)
+	}
+	defer session.Close()*/
+
+	cmd := exec.Command("/bin/bash", "-c", cmdStr)
+
+	// assign input/output
+	cmd.Stderr = stderr
+	cmd.Stdout = stdout
+	cmd.Stdin = stdin
+
+	// create pty
+	//err = session.RequestPty("xterm-256color", height, width, ssh.TerminalModes{
+	//ssh.ECHO:          1,     // enable echoing
+	//ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
+	//ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
+	//})
+	//if err != nil {
+	//return err
+	//}
+
+	return cmd.Run()
 }
 
 func (c *localhostConnection) ExecutePipeCommand(command string, pipesFunc func(reader io.Reader, errorReader io.Reader, writer io.Writer) error) error {

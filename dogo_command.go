@@ -4,30 +4,31 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
+	"strings"
+
+	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/oliverkofoed/dogo/commandtree"
 	"github.com/oliverkofoed/dogo/neaterror"
+	"github.com/oliverkofoed/dogo/registry/resources/localhost"
 	"github.com/oliverkofoed/dogo/schema"
 	"github.com/oliverkofoed/dogo/term"
 )
 
-func dogoCommand(config *schema.Config, environment *schema.Environment, commandName string, command *schema.Command, commandPackage string, forceTarget string) {
+func dogoCommand(config *schema.Config, environment *schema.Environment, commandName string, command *schema.Command, commandPackage string, forceTarget string, args []string) {
 	setTemplateGlobals(config, environment)
 
 	root := commandtree.NewRootCommand("Run " + commandName)
-	err := buildPackageCommands(root, config, environment, commandName, command, commandPackage, forceTarget, func(res *schema.Resource) schema.ServerConnection { return nil })
+	err := buildPackageCommands(root, config, environment, commandName, command, commandPackage, forceTarget, func(res *schema.Resource) schema.ServerConnection { return nil }, args)
 	if err != nil {
 		fmt.Println(neaterror.String("", err, term.IsTerminal))
 		return
 	}
 
 	if len(root.Children) == 1 {
-		c := root.Children[0]
-		go func() {
-			c.Execute()
-			c.AsCommand().State = commandtree.CommandStateCompleted
-		}()
-		commandtree.SingleCommandUI(c.AsCommand())
+		c := root.Children[0].(*packageCommand)
+		c.execute(true)
 	} else {
 		r := commandtree.NewRunner(root, 5)
 		go r.Run(nil)
@@ -35,7 +36,7 @@ func dogoCommand(config *schema.Config, environment *schema.Environment, command
 	}
 }
 
-func buildPackageCommands(parent *commandtree.RootCommand, config *schema.Config, environment *schema.Environment, commandName string, command *schema.Command, commandPackage string, forceTarget string, reuseConnection func(res *schema.Resource) schema.ServerConnection) error {
+func buildPackageCommands(parent *commandtree.RootCommand, config *schema.Config, environment *schema.Environment, commandName string, command *schema.Command, commandPackage string, forceTarget string, reuseConnection func(res *schema.Resource) schema.ServerConnection, args []string) error {
 	// find the target string
 	target, err := command.Target.Render(nil)
 	if err != nil {
@@ -57,12 +58,14 @@ func buildPackageCommands(parent *commandtree.RootCommand, config *schema.Config
 		for _, res := range packResources {
 			if server, ok := res.Resource.(schema.ServerResource); ok {
 				s := &packageCommand{
-					local:      command.Local,
-					commands:   command.Commands,
-					resource:   res,
-					server:     server,
-					connection: reuseConnection(res),
-					tunnels:    make(map[string]*schema.Tunnel),
+					args:        args,
+					local:       command.Local,
+					commands:    command.Commands,
+					environment: environment,
+					resource:    res,
+					server:      server,
+					connection:  reuseConnection(res),
+					tunnels:     make(map[string]*schema.Tunnel),
 				}
 
 				// check that this server has all packages required by the given tunnels.
@@ -104,9 +107,9 @@ func buildPackageCommands(parent *commandtree.RootCommand, config *schema.Config
 				}
 				s.requireRemoteState = s.requireRemoteState || len(expandResourceTemplates(s.resource, config)) > 0
 
-				caption := commandName + " on " + res.Name
+				caption := commandName + " on " + environment.Name + "." + res.Name
 				if command.Local {
-					caption = commandName + " against " + res.Name
+					caption = commandName + " against " + environment.Name + "." + res.Name
 				}
 				switch target {
 				case "":
@@ -135,18 +138,19 @@ func buildPackageCommands(parent *commandtree.RootCommand, config *schema.Config
 
 	// is this a command that just will be run locally?
 	if !addedAtlestOne && command.Local && len(command.Tunnels) == 0 {
-		// render the commands array
-		arr := make([]string, 0, len(command.Commands))
-		for _, cmd := range command.Commands {
-			commandString, err := cmd.Render(nil)
-			if err != nil {
-				return err
-			}
-			arr = append(arr, commandString)
+		s := &packageCommand{
+			args:        args,
+			local:       command.Local,
+			commands:    command.Commands,
+			environment: environment,
+			resource:    nil,
+			server:      nil,
+			connection:  nil,
+			tunnels:     make(map[string]*schema.Tunnel),
 		}
 
 		// add command
-		parent.Add(commandName, commandtree.NewBashCommands("", "", "", arr...))
+		parent.Add(commandName, s)
 		addedAtlestOne = true
 	}
 
@@ -160,9 +164,11 @@ func buildPackageCommands(parent *commandtree.RootCommand, config *schema.Config
 
 type packageCommand struct {
 	commandtree.Command
+	args               []string
 	local              bool
 	commands           []schema.Template
 	resource           *schema.Resource
+	environment        *schema.Environment
 	server             schema.ServerResource
 	connection         schema.ServerConnection
 	requireRemoteState bool
@@ -177,13 +183,30 @@ func (c *packageCommand) getVars(tunnels map[string]*tunnelInfo) map[string]inte
 }
 
 func (c *packageCommand) Execute() {
+	c.execute(false)
+}
+
+func (c *packageCommand) execute(inline bool) {
+	fErr := c.Err
+	fErrf := c.Errf
+	if inline {
+		c.LogEvent = func(evt *commandtree.MonitorEvent) {
+			if evt.LogEntry != nil {
+				if err := evt.LogEntry.Error; err != nil {
+					fmt.Println(neaterror.String("", err, term.IsTerminal))
+				} else {
+					fmt.Println(evt.LogEntry.Message)
+				}
+			}
+		}
+	}
 	// grab connection
 	connection := c.connection
 	if connection == nil || (c.local && len(c.tunnels) > 0) {
 		if c.resource.Manager.Provision != nil {
 			err := c.resource.Manager.Provision(c.resource.ManagerGroup, c.resource.Resource, c)
 			if err != nil {
-				c.Err(err)
+				fErr(err)
 				return
 			}
 		}
@@ -192,7 +215,7 @@ func (c *packageCommand) Execute() {
 		var err error
 		connection, err = c.resource.Resource.(schema.ServerResource).OpenConnection()
 		if err != nil {
-			c.Errf("Could not get connection to %v. Err: %v", c.resource.Name, err)
+			fErrf("Could not get connection to %v. Err: %v", c.resource.Name, err)
 			return
 		}
 		defer connection.Close()
@@ -209,7 +232,7 @@ func (c *packageCommand) Execute() {
 		// expand templates
 		expandErrors := expandResourceTemplates(c.resource, config)
 		for _, err := range expandErrors {
-			c.Err(err)
+			fErr(err)
 		}
 		if len(expandErrors) > 0 {
 			return
@@ -217,57 +240,112 @@ func (c *packageCommand) Execute() {
 	}
 
 	tunnels := make(map[string]*tunnelInfo)
-	if c.local {
-		// start tunnels.
-		anyErr := false
-		for n, tun := range c.tunnels {
-			tunnelHost, err := tun.Host.Render(nil)
+	anyErr := false
+	for n, tun := range c.tunnels {
+		tunnelHost, err := tun.Host.Render(map[string]interface{}{"self": c.resource.Data})
+		if err != nil {
+			fErr(err)
+			anyErr = true
+		} else {
+			port, err := connection.StartTunnel(0, tun.Port, tunnelHost, false)
 			if err != nil {
-				c.Err(err)
+				fErrf("Error starting tunnel to %v:%v. Error message: %v", c.resource.Name, tun.Port, err.Error())
 				anyErr = true
-			} else {
-				port, err := connection.StartTunnel(0, tun.Port, tunnelHost, false)
-				if err != nil {
-					c.Errf("Error starting tunnel to %v:%v. Error message: %v", c.resource.Name, tun.Port, err.Error())
-					anyErr = true
-				}
-				tunnels[n] = createTunnelInfo(port)
 			}
+			tunnels[n] = createTunnelInfo(port)
 		}
-		if anyErr {
+	}
+	if anyErr {
+		return
+	}
+
+	// render the command string
+	renderedCommands := make([]string, 0, len(c.commands))
+	for _, cmd := range c.commands {
+		commandString, err := cmd.Render(c.getVars(tunnels))
+		if err != nil {
+			fErr(err)
+			//}
 			return
 		}
+		renderedCommands = append(renderedCommands, commandString+" "+strings.Join(c.args, " "))
+	}
 
-		// render the command string
-		for _, cmd := range c.commands {
-			commandString, err := cmd.Render(c.getVars(tunnels))
-			if err != nil {
-				c.Err(err)
+	if inline {
+		fmt.Println(term.White + runChar(dashes, 30+len(c.resource.Manager.Name)+len(c.resource.Name)) + term.Reset)
+		fmt.Println(term.White + "-----[ connected to " + term.Yellow + c.environment.Name + "." + c.resource.Name + term.White + " (" + c.resource.Manager.Name + ") ]-----" + term.Reset)
+		fmt.Println(term.White + runChar(dashes, 30+len(c.resource.Manager.Name)+len(c.resource.Name)) + term.Reset)
+
+		for _, cmd := range renderedCommands {
+			//fmt.Println(term.Green + "[ " + cmd + " ]" + term.Reset)
+			//fmt.Print("")
+			fileDescriptor := int(os.Stdin.Fd())
+			if !terminal.IsTerminal(fileDescriptor) {
+				fmt.Println(neaterror.String("", fmt.Errorf("Can only run in interative terminal"), term.IsTerminal))
 				return
 			}
 
-			// run command
-			err = commandtree.OSExec(c.AsCommand(), "", "> ", "/bin/bash", "-c", commandString)
+			width, height, err := terminal.GetSize(fileDescriptor)
+			if err != nil {
+				fmt.Println(neaterror.String("", err, term.IsTerminal))
+				return
+			}
+
+			if c.local {
+				l, err := (&localhost.Localhost{}).OpenConnection()
+				if err != nil {
+					fmt.Println(neaterror.String("", err, term.IsTerminal))
+					return
+				}
+
+				err = l.Shell(cmd, os.Stderr, os.Stdout, os.Stdin, width, height)
+				if err != nil {
+					fmt.Println(neaterror.String("", err, term.IsTerminal))
+					return
+				}
+			} else {
+				//fileDescriptor := int(os.Stdin.Fd())
+				//if !terminal.IsTerminal(fileDescriptor) {
+				//fmt.Println(neaterror.String("", fmt.Errorf("Can only run in interative terminal"), term.IsTerminal))
+				//return
+				//}
+
+				originalState, err := terminal.MakeRaw(fileDescriptor)
+				if err != nil {
+					fmt.Println(neaterror.String("", err, term.IsTerminal))
+					return
+				}
+
+				//width, height, err := terminal.GetSize(fileDescriptor)
+				//if err != nil {
+				//terminal.Restore(fileDescriptor, originalState)
+				//fmt.Println(neaterror.String("", err, term.IsTerminal))
+				//return
+				//}
+
+				err = connection.Shell(cmd, os.Stderr, os.Stdout, os.Stdin, width, height)
+				if err != nil {
+					terminal.Restore(fileDescriptor, originalState)
+					fmt.Println(neaterror.String("", err, term.IsTerminal))
+					return
+				}
+				terminal.Restore(fileDescriptor, originalState)
+			}
+
+		}
+	} else if c.local {
+		// run command
+		for _, cmd := range renderedCommands {
+			err := commandtree.OSExec(c.AsCommand(), "", "> ", "/bin/bash", "-c", cmd)
 			if err != nil {
 				c.Err(err)
 				return
 			}
 		}
 	} else {
-		// render the commands array
-		arr := make([]string, 0, len(c.commands))
-		for _, cmd := range c.commands {
-			commandString, err := cmd.Render(nil)
-			if err != nil {
-				c.Err(err)
-				return
-			}
-			arr = append(arr, commandString)
-		}
-
 		// run command on remote system.
 		root := commandtree.NewRootCommand("remote command")
-		root.Add("Run On "+c.resource.Name, commandtree.NewBashCommands("", "", "> ", arr...))
+		root.Add("Run On "+c.resource.Name, commandtree.NewBashCommands("", "", "> ", renderedCommands...))
 		err := connection.ExecutePipeCommand(schema.AgentPath+" exec", func(reader io.Reader, errorReader io.Reader, writer io.Writer) error {
 			return commandtree.StreamCall(root, c, 1, reader, errorReader, writer, func(s string) { c.Logf(s) })
 		})
@@ -300,15 +378,17 @@ func createTunnelInfo(port int) *tunnelInfo {
 	}
 
 	return &tunnelInfo{
-		Port:      port,
-		Loopback:  fmt.Sprintf("127.0.0.1:%v", port),
+		port:      port,
+		host:      preferredIP,
+		loopback:  fmt.Sprintf("127.0.0.1:%v", port),
 		preferred: fmt.Sprintf("%v:%v", preferredIP, port),
 	}
 }
 
 type tunnelInfo struct {
-	Port      int
-	Loopback  string
+	port      int
+	host      string
+	loopback  string
 	preferred string
 }
 

@@ -87,7 +87,7 @@ func createDogoCommand(name string, c *schema.Command, packageName string) *cobr
 			if len(args) >= 2 {
 				forceTarget = args[1]
 			}
-			dogoCommand(config, environment, name, c, packageName, forceTarget)
+			dogoCommand(config, environment, name, c, packageName, forceTarget, []string{})
 			return nil
 		},
 	}
@@ -349,6 +349,28 @@ var DogoVaultGetFileCommand = &cobra.Command{
 			}
 			os.Stdout.Write(v)
 			return nil
+		})
+	},
+}
+
+// DogoVaultRenameCommand represents the 'dogo vault rename' command
+var DogoVaultRenameCommand = &cobra.Command{
+	Use:     "rename OLDKEY NEWKEY",
+	Short:   "Rename an entry in the vault",
+	Example: "dogo vault rename oldkey newkey",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) != 2 {
+			return fmt.Errorf("requires TWO arguments: OldKey (the key to rename) NewKey (the new name for the key)")
+		}
+		return vaultAction(flagVault, func(vault *vault.Vault) error {
+			v, err := vault.GetBytes(args[0])
+			if err != nil {
+				return err
+			}
+
+			vault.SetBytes(args[1], v)
+			vault.Remove(args[0])
+			return vault.Save()
 		})
 	},
 }
