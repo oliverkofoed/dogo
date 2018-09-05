@@ -139,14 +139,15 @@ func buildPackageCommands(parent *commandtree.RootCommand, config *schema.Config
 	// is this a command that just will be run locally?
 	if !addedAtlestOne && command.Local && len(command.Tunnels) == 0 {
 		s := &packageCommand{
-			args:        args,
-			local:       command.Local,
-			commands:    command.Commands,
-			environment: environment,
-			resource:    nil,
-			server:      nil,
-			connection:  nil,
-			tunnels:     make(map[string]*schema.Tunnel),
+			args:               args,
+			local:              command.Local,
+			commands:           command.Commands,
+			environment:        environment,
+			resource:           nil,
+			server:             nil,
+			connection:         nil,
+			requireRemoteState: false,
+			tunnels:            make(map[string]*schema.Tunnel),
 		}
 
 		// add command
