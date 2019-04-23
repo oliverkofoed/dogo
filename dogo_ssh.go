@@ -54,9 +54,9 @@ func dogoSSH(config *schema.Config, environment *schema.Environment, target stri
 		term.MoveUp(1)
 		term.EraseCurrentLine()
 	}
-	fmt.Println(term.White + runChar(dashes, 30+len(targetResource.Manager.Name)+len(targetResource.Name)) + term.Reset)
-	fmt.Println(term.White + "-----[ connected to " + term.Yellow + environment.Name + "." + targetResource.Name + term.White + " (" + targetResource.Manager.Name + ") ]-----" + term.Reset)
-	fmt.Println(term.White + runChar(dashes, 30+len(targetResource.Manager.Name)+len(targetResource.Name)) + term.Reset)
+	fmt.Println(term.Bold + runChar(dashes, 30+len(targetResource.Manager.Name)+len(targetResource.Name)) + term.Reset)
+	fmt.Println(term.Bold + "-----[ connected to " + term.Yellow + environment.Name + "." + targetResource.Name + term.Bold + " (" + targetResource.Manager.Name + ") ]-----" + term.Reset)
+	fmt.Println(term.Bold + runChar(dashes, 30+len(targetResource.Manager.Name)+len(targetResource.Name)) + term.Reset)
 	fmt.Println()
 
 	fileDescriptor := int(os.Stdin.Fd())
