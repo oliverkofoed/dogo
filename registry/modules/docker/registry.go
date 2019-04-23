@@ -38,8 +38,8 @@ func StartDockerRegistry(logLevel string) error {
 		config.HTTP.Net = "tcp"
 		config.HTTP.Addr = registryAddr
 		config.HTTP.Secret = "abcedef12345"
-		config.Log.Level = "error"
-		config.Loglevel = "error"
+		config.Log.Level = "panic"
+		config.Loglevel = "panic"
 		config.Log.AccessLog.Disabled = true
 		registry.NewRegistry(ctx, config) // sets log level to null
 
