@@ -15,6 +15,7 @@ const ESC = 27
 var IsTerminal = terminal.IsTerminal(int(os.Stdout.Fd()))
 var Reset = "\033[0m"
 var Red = ansi.ColorCode("red+h")
+var RedBold = ansi.ColorCode("red+b")
 var White = ansi.ColorCode("white+h")
 var Bold = ansi.ColorCode("+b")
 var Green = ansi.ColorCode("green+h")

@@ -177,7 +177,7 @@ func (c *consoleUI) printStatus(cmd *Command, level int, terminalCols int, spinC
 	}
 
 	if cmd.anyError {
-		tprint(term.Red+cmd.Caption+term.Reset, &characters)
+		tprint(term.Bold+term.Red+cmd.Caption+term.Reset, &characters)
 	} else {
 		tprint(term.Bold+cmd.Caption+term.Reset, &characters)
 	}
@@ -257,7 +257,7 @@ func (c *consoleUI) printLog(cmd *Command, level int, prefix string) {
 	captionPrefix := ""
 	if level != 0 {
 		if cmd.anyError {
-			captionPrefix = prefix + (term.Red + "! ")
+			captionPrefix = prefix + (term.Red + "! " + term.RedBold)
 		} else {
 			switch cmd.State {
 			case CommandStateReady:
