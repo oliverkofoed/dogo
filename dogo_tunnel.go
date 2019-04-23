@@ -332,19 +332,19 @@ func printTunnelStatus(environment *schema.Environment, tunnels []*dogoTunnelInf
 		}
 
 		// print header
-		term.Print(term.Bold + runChar(dashes, width) + term.Reset + "\n")
+		term.Print(term.BlackBold + runChar(dashes, width) + term.Reset + "\n")
 		leftdashes := runChar(dashes, (width-27-len(environment.Name))/2)
 		rightdashes := leftdashes
 		if len(environment.Name)%2 == 0 {
 			rightdashes += "-"
 		}
-		term.Print(term.Bold + leftdashes + "[ tunnels to " + term.Yellow + environment.Name + term.Bold + " environment ]" + rightdashes + term.Reset + "\n")
-		term.Print(term.Bold + runChar(dashes, width) + term.Reset + "\n")
+		term.Print(term.BlackBold + leftdashes + "[ tunnels to " + term.Yellow + environment.Name + term.BlackBold + " environment ]" + rightdashes + term.Reset + "\n")
+		term.Print(term.BlackBold + runChar(dashes, width) + term.Reset + "\n")
 
 		col1 := maxLenTunnel + 5
 		col2 := maxLenServer + 5
 		col3 := maxLenStatus + 5
-		term.Print(term.Bold)
+		term.Print(term.BlackBold)
 		term.Print("tunnel")
 		term.Print(runChar(spaces, 2+col1-len("tunnel")))
 		term.Print("server")
@@ -370,7 +370,7 @@ func printTunnelStatus(environment *schema.Environment, tunnels []*dogoTunnelInf
 			case tunnelStateConnected:
 				term.Print(term.Green)
 				term.Print("✓ ")
-				term.Print(term.Bold)
+				term.Print(term.BlackBold)
 				break
 			case tunnelStateError:
 				term.Print(term.Red)
@@ -394,7 +394,7 @@ func printTunnelStatus(environment *schema.Environment, tunnels []*dogoTunnelInf
 			term.Print(term.Reset)
 			term.Print("\n")
 		}
-		term.Print(term.Bold + runChar(dashes, width) + term.Reset + "\n")
+		term.Print(term.BlackBold + runChar(dashes, width) + term.Reset + "\n")
 		term.Print("(press enter to exit.)\n")
 		term.FlushBuffer(true)
 		time.Sleep(time.Millisecond * 200)

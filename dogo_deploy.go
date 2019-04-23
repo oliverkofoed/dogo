@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -66,8 +67,8 @@ func dogoDeploy(config *schema.Config, environment *schema.Environment, allowDec
 
 	go func() {
 		calcHooksCommand := &calculateDeploymentHooksCommand{
-			environment: environment,
-			config:      config,
+			environment:              environment,
+			config:                   config,
 			beforeDeploymentCommands: commandtree.NewRootCommand("before_deployment"),
 			afterDeploymentCommands:  commandtree.NewRootCommand("before_deployment"),
 			reuseConnection: func(res *schema.Resource) schema.ServerConnection {
@@ -409,8 +410,10 @@ func getState(resource *schema.Resource, connection schema.ServerConnection, use
 		if agentExists {
 			l.Logf(" - deleting preexisting dogoagent (%v)", schema.AgentPath)
 			useSudo, err = sudoRetry(useSudo, func(sudo bool, cmdPrefix string) error {
-				_, err := connection.ExecuteCommand(cmdPrefix + "rm " + schema.AgentPath)
-				return err
+				if _, err := connection.ExecuteCommand(cmdPrefix + "rm -rf " + schema.AgentPath); err != nil {
+					return errors.New("permission denied")
+				}
+				return nil
 			})
 			if err != nil {
 				l.Errf("Error deleting %v: %v. Giving Up!", schema.AgentPath, err)

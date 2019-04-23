@@ -12,6 +12,7 @@ import (
 	"github.com/docker/distribution/configuration"
 	"github.com/docker/distribution/context"
 	"github.com/docker/distribution/health"
+	"github.com/docker/distribution/registry"
 	"github.com/docker/distribution/registry/handlers"
 	"github.com/docker/distribution/registry/listener"
 	_ "github.com/docker/distribution/registry/storage/driver/filesystem" // register filesystem for registry
@@ -37,9 +38,10 @@ func StartDockerRegistry(logLevel string) error {
 		config.HTTP.Net = "tcp"
 		config.HTTP.Addr = registryAddr
 		config.HTTP.Secret = "abcedef12345"
-		config.Log.Level = "panic"
+		config.Log.Level = "error"
+		config.Loglevel = "error"
 		config.Log.AccessLog.Disabled = true
-		log.SetLevel(log.InfoLevel)
+		registry.NewRegistry(ctx, config) // sets log level to null
 
 		app := handlers.NewApp(ctx, config)
 		app.RegisterHealthChecks()

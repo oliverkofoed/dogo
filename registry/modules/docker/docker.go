@@ -16,6 +16,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Sirupsen/logrus"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/tlsconfig"
@@ -587,6 +589,8 @@ func (c *removeImagesCommand) Execute() {
 }
 
 func getClient() (*client.Client, error) {
+	logrus.SetLevel(logrus.ErrorLevel)
+
 	transport := &http.Transport{
 		Dial: (&net.Dialer{
 			Timeout:   200 * time.Millisecond,
@@ -623,13 +627,12 @@ func getClient() (*client.Client, error) {
 		host = "unix://" + sock
 	}
 
-	version := os.Getenv("DOCKER_API_VERSION")
-	if version == "" {
-		version = "1.39"
-	}
-
+	opts := make([]client.Opt, 0)
 	if host == "unix:///var/run/docker.sock" {
-		return client.NewClient(host, version, nil, nil)
+		opts = append(opts, client.WithHost(host))
+	} else {
+		opts = append(opts, client.WithHost(host), client.WithHTTPClient(&http.Client{Transport: transport}))
 	}
-	return client.NewClient(host, version, &http.Client{Transport: transport}, nil)
+	opts = append(opts, client.WithAPIVersionNegotiation())
+	return client.NewClientWithOpts(opts...)
 }

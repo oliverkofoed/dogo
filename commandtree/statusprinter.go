@@ -177,9 +177,9 @@ func (c *consoleUI) printStatus(cmd *Command, level int, terminalCols int, spinC
 	}
 
 	if cmd.anyError {
-		tprint(term.Bold+term.Red+cmd.Caption+term.Reset, &characters)
+		tprint(term.RedBold+cmd.Caption+term.Reset, &characters)
 	} else {
-		tprint(term.Bold+cmd.Caption+term.Reset, &characters)
+		tprint(term.BlackBold+cmd.Caption+term.Reset, &characters)
 	}
 
 	var lastLogEntry *LogEntry
@@ -270,12 +270,12 @@ func (c *consoleUI) printLog(cmd *Command, level int, prefix string) {
 				captionPrefix = prefix + (term.Reset + "Ⅱ ")
 				break
 			case CommandStateCompleted:
-				captionPrefix = prefix + (term.Green + "✓ " + term.Bold)
+				captionPrefix = prefix + (term.Green + "✓ " + term.BlackBold)
 				break
 			}
 		}
 	} else if level == 0 {
-		captionPrefix = term.Bold
+		captionPrefix = term.BlackBold
 	}
 	term.Print(captionPrefix + cmd.Caption + term.Reset)
 	term.Print("\n")
@@ -305,7 +305,7 @@ func (c *consoleUI) printLog(cmd *Command, level int, prefix string) {
 }
 
 func SingleCommandUI(c *Command) {
-	term.Print(term.Bold + c.Caption + term.Reset + "\n")
+	term.Print(term.BlackBold + c.Caption + term.Reset + "\n")
 	logPtr := 0
 	flush := func() {
 		c.mutex.Lock()

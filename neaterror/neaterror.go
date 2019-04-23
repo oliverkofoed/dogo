@@ -53,7 +53,7 @@ func String(prefix string, err error, terminalColors bool) string {
 	if terminalColors {
 		prefixColor = term.Reset
 		lineColor = term.Yellow
-		keyColor = term.Bold
+		keyColor = term.BlackBold
 		valueColor = term.Reset
 		resetColor = term.Reset
 		errorColor = term.Red

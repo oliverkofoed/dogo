@@ -273,9 +273,9 @@ func (c *packageCommand) execute(inline bool) {
 	}
 
 	if inline {
-		fmt.Println(term.Bold + runChar(dashes, 30+len(c.resource.Manager.Name)+len(c.resource.Name)) + term.Reset)
-		fmt.Println(term.Bold + "-----[ connected to " + term.Yellow + c.environment.Name + "." + c.resource.Name + term.Bold + " (" + c.resource.Manager.Name + ") ]-----" + term.Reset)
-		fmt.Println(term.Bold + runChar(dashes, 30+len(c.resource.Manager.Name)+len(c.resource.Name)) + term.Reset)
+		fmt.Println(term.BlackBold + runChar(dashes, 30+len(c.resource.Manager.Name)+len(c.resource.Name)) + term.Reset)
+		fmt.Println(term.BlackBold + "-----[ connected to " + term.Yellow + c.environment.Name + "." + c.resource.Name + term.BlackBold + " (" + c.resource.Manager.Name + ") ]-----" + term.Reset)
+		fmt.Println(term.BlackBold + runChar(dashes, 30+len(c.resource.Manager.Name)+len(c.resource.Name)) + term.Reset)
 
 		for _, cmd := range renderedCommands {
 			//fmt.Println(term.Green + "[ " + cmd + " ]" + term.Reset)

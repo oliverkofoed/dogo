@@ -87,7 +87,7 @@ var Manager = schema.ResourceManager{
 			if err := decoder.Decode(info); err == nil {
 				if bytes.Equal(info.Vagrantfile, vagrantfile) {
 					if stdout, _, err := virtualbox.VMBoxManage("showvminfo", label); err == nil {
-						started := strings.Contains(stdout, "State:           running")
+						started := strings.Contains(stdout, "State:                       running")
 						if !started {
 							l.Logf("Starting virtualbox VM directly (bypassing vagrant for speed)")
 							if _, _, err := virtualbox.VMBoxManage("startvm", label, "--type", "headless"); err != nil {
