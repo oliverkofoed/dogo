@@ -16,9 +16,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/docker/docker/api"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/tlsconfig"
+	"github.com/docker/go-connections/tlsconfig"
 	"github.com/oliverkofoed/dogo/commandtree"
 	"github.com/oliverkofoed/dogo/neaterror"
 	"github.com/oliverkofoed/dogo/registry/modules/firewall"
@@ -625,7 +626,7 @@ func getClient() (*client.Client, error) {
 
 	version := os.Getenv("DOCKER_API_VERSION")
 	if version == "" {
-		version = client.DefaultVersion
+		version = api.DefaultVersion
 	}
 
 	if host == "unix:///var/run/docker.sock" {
