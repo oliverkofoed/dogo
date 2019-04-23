@@ -50,7 +50,7 @@ func StartDockerRegistry(logLevel string) error {
 
 		// Find the addresses to listen to. (try not to use loopback, since that is not reachable from
 		// docker running in boot2docker and other vms on mac)
-		listenAddr := []string{}
+		listenAddr := make(map[string]bool)
 		ifaces, err := net.Interfaces()
 		if err != nil {
 			registryStartErr = err
@@ -66,14 +66,14 @@ func StartDockerRegistry(logLevel string) error {
 				switch v := addr.(type) {
 				case *net.IPNet:
 					if ipv4 := v.IP.To4(); ipv4 != nil {
-						listenAddr = append(listenAddr, fmt.Sprintf("%v:%v", ipv4.String(), registryPort))
+						listenAddr[fmt.Sprintf("%v:%v", ipv4.String(), registryPort)] = true
 					}
 				}
 			}
 		}
 
 		set := false
-		for _, addr := range listenAddr {
+		for addr := range listenAddr {
 			ln, err := listener.NewListener(config.HTTP.Net, addr)
 			if err != nil {
 				registryStartErr = err

@@ -16,7 +16,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/docker/docker/api"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/tlsconfig"
@@ -626,7 +625,7 @@ func getClient() (*client.Client, error) {
 
 	version := os.Getenv("DOCKER_API_VERSION")
 	if version == "" {
-		version = api.DefaultVersion
+		version = "1.39"
 	}
 
 	if host == "unix:///var/run/docker.sock" {
