@@ -37,6 +37,7 @@ var ResourceManagers = map[string]*schema.ResourceManager{
 	vagrant.Manager.Name:   &vagrant.Manager,
 	linode.Manager.Name:    &linode.Manager,
 	localhost.Manager.Name: &localhost.Manager,
+	//virtualbox.Manager.Name: &virtualbox.Manager,
 }
 
 func GobRegister() {

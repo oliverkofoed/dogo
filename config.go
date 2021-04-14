@@ -46,7 +46,7 @@ func buildConfig(path string) (config *schema.Config, errors []error) {
 	for _, file := range files {
 		fileData, err := ioutil.ReadFile(file)
 		if err != nil {
-			addError(&errors, file, "Could not read %v. Message: %v", err.Error())
+			addError(&errors, file, "Could not read config file. Message: %v", err.Error())
 			return
 		}
 
@@ -343,11 +343,30 @@ func parseEnvironments(errors *[]error, config *schema.Config, configFiles map[s
 															}
 														}
 
+														// parse count_skip
+														countSkip := make(map[int]bool)
+														if v, ok := v9flat["count_skip"]; ok {
+															delete(v9flat, "count_skip")
+															if arr, ok := v.([]interface{}); ok {
+																for _, id := range arr {
+																	if num, ok := id.(int); ok {
+																		countSkip[num] = true
+																	}
+																}
+															}
+														}
+
 														// create resources
 														for i := 1; i <= count; i++ {
 															instanceName := serverName
 															if count > 1 || hasCount {
 																instanceName = fmt.Sprintf("%v_%v", serverName, i)
+															}
+
+															// honor count_skip
+															if _, found := countSkip[i]; found {
+																//fmt.Println("skiping", instanceName)
+																continue
 															}
 
 															// check that the name is unique
@@ -381,7 +400,7 @@ func parseEnvironments(errors *[]error, config *schema.Config, configFiles map[s
 															if packages, found := v9flat["package"]; found {
 																packV, ok := packages.([]map[string]interface{})
 																if !ok {
-																	addError(errors, location, "Invalid package definition", providerName)
+																	addError(errors, location, "Invalid package definition: %v", providerName)
 																	continue
 																}
 																for _, a := range packV {

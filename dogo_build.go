@@ -69,7 +69,7 @@ func dogoBuild(config *schema.Config) {
 								c.Logf("Building docker image with tag='%v'", name)
 								start := time.Now()
 
-								if err = commandtree.OSExec(c, path, "", "docker", "build", "-t", name, "."); err != nil {
+								if err = commandtree.OSExec(c, path, "", "docker", "build", "--progress", "plain", "-t", name, "."); err != nil {
 									c.Err(err)
 									return
 								}

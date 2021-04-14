@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/coreos/etcd/version"
 	"github.com/docker/distribution/configuration"
 	"github.com/docker/distribution/context"

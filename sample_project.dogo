@@ -28,7 +28,9 @@ environment "dev" {
 			package "developmentmachine" {} 
 		}
 		server "web2" {
-			count = 1
+			count = 3
+			count_skip = [2]
+
 			box = "ubuntu/trusty64"
 			datacenter = "local"
 			privateips = ["192.162.100.{{20+int(self.instanceid)}}", "192.162.200.{{20+int(self.instanceid)}}"]			
