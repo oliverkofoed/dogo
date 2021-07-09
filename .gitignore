@@ -9,3 +9,4 @@ _Store
 /agent/.build/*
 /sample_project/components/webserver
 .tmp_autogo/autogo_build
+test_apikey.txt

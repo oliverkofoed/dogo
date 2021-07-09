@@ -14,7 +14,9 @@ import (
 	"github.com/oliverkofoed/dogo/registry/modules/dogo"
 	"github.com/oliverkofoed/dogo/registry/modules/file"
 	"github.com/oliverkofoed/dogo/registry/modules/firewall"
+	"github.com/oliverkofoed/dogo/registry/resources/cloudflare"
 	"github.com/oliverkofoed/dogo/registry/resources/linode"
+	"github.com/oliverkofoed/dogo/registry/resources/linodeold"
 	"github.com/oliverkofoed/dogo/registry/resources/localhost"
 	"github.com/oliverkofoed/dogo/registry/resources/server"
 	"github.com/oliverkofoed/dogo/registry/resources/vagrant"
@@ -33,10 +35,12 @@ var ModuleManagers = map[string]*schema.ModuleManager{
 
 // ResourceManagers is the list of registered resource providers
 var ResourceManagers = map[string]*schema.ResourceManager{
-	server.Manager.Name:    &server.Manager,
-	vagrant.Manager.Name:   &vagrant.Manager,
-	linode.Manager.Name:    &linode.Manager,
-	localhost.Manager.Name: &localhost.Manager,
+	server.Manager.Name:     &server.Manager,
+	vagrant.Manager.Name:    &vagrant.Manager,
+	linode.Manager.Name:     &linode.Manager,
+	linodeold.Manager.Name:  &linodeold.Manager,
+	localhost.Manager.Name:  &localhost.Manager,
+	cloudflare.Manager.Name: &cloudflare.Manager,
 	//virtualbox.Manager.Name: &virtualbox.Manager,
 }
 

@@ -1,12 +1,10 @@
-package linode_test
+package linodeold_test
 
 import (
-	"fmt"
 	"os"
 	"strings"
 	"testing"
 
-	"github.com/oliverkofoed/dogo/commandtree"
 	"github.com/oliverkofoed/dogo/registry/resources/linode"
 	"github.com/oliverkofoed/dogo/schema"
 	"github.com/oliverkofoed/dogo/testmodule"
@@ -21,19 +19,18 @@ func TestLinode(t *testing.T) {
 	apikey = []byte(strings.TrimSpace(string(apikey)))
 
 	l := &schema.ConsoleLogger{}
-
 	group := &linode.LinodeGroup{
 		DecommissionTag: "groupa",
-		APIKey:          testmodule.MockTemplate(string(apikey)),
+		APIKey:          testmodule.MockTemplate(apikey),
 	}
 
 	box1 := &linode.Linode{
-		Name:         "web24",
-		Datacenter:   testmodule.MockTemplate("eu-central"),
-		Plan:         testmodule.MockTemplate("Linode 2GB"),
-		Distribution: testmodule.MockTemplate("Ubuntu 18.04 LTS"),
+		Name:         "web23",
+		Datacenter:   testmodule.MockTemplate("dallas"),
+		Plan:         testmodule.MockTemplate("Linode 2048/1cores/2048mb/24gb/2000xfer"),
+		Distribution: testmodule.MockTemplate("Ubuntu 16.04 LTS"),
 		Disks:        testmodule.MockTemplate("swap:256"),
-		Kernel:       testmodule.MockTemplate("Latest 64 bit"),
+		Kernel:       testmodule.MockTemplate("Latest 64 bit (4.8.6-x86_64-linode78)"),
 		PrivateIPs:   1,
 		SSHPrivateKey: testmodule.MockFileTemplate([]byte(`-----BEGIN RSA PRIVATE KEY-----
 MIIEogIBAAKCAQEAzgJ0Mz3EncZHIbUD3q+EWW8zPA8D8+Eu0zbdwzOGUKLsXST9
@@ -63,27 +60,11 @@ bNP4v1aU3OLr0TLKYEkeZ44jOHtjUcq9Yx+dwAWHmVFC/2xZf92yceEofuVONB+X
 +ki8w0SoynCrsNmyaeET77AUmNeAF+ksaByrIJ5A97Y42Jtl88A=
 -----END RSA PRIVATE KEY-----`)),
 		SSHPublicKey: testmodule.MockFileTemplate([]byte(`ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDOAnQzPcSdxkchtQPer4RZbzM8DwPz4S7TNt3DM4ZQouxdJP2Bq/LRSFKANFPzoSadg93uz0OLwSRVF3LWp992Ip5B99kxp3+CvxrxumUjtS3QiROyKzcJ++XGmT+pHUjZbOobrfZvXka6SRxbaDNNM4qSP4CoQJUSmdGRMQcdhTxmQ+xJI0F3KfXWgLKWek0CTLmg34u1S9Am+qhmuS1jUZHtOarfc15AeTcmi0uXtXIJrpzgjVbYCFF9V9betUSu7qJVWmnx6lBiX36xohJkP7LaTbKL9elNVXKHM7atkoy3/Ggvg6btVlO7aWRYpM+FabC7NvxiG6YQ8RCI2s8x sample@bamble.com`)),
-		RootPassword: testmodule.MockTemplate("dingdongbingbog"),
+		RootPassword: testmodule.MockTemplate(""),
 	}
-	err = linode.Manager.Provision(group, box1, l)
+	err := linode.Manager.Provision(group, box1, l)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-
-	x := make(map[interface{}][]string)
-	x[group] = []string{"web24"}
-
-	cmd := commandtree.NewRootCommand("decommission")
-	a, err := linode.Manager.FindUnused(x, cmd.AsCommand(), l)
-	fmt.Println(a, err)
-
-	r := commandtree.NewRunner(cmd, 10)
-	go r.Run(nil)
-	if err := commandtree.ConsoleUI(cmd); err != nil {
-		t.Error(err)
-		return
-	}
-
-	fmt.Println("done")
 }

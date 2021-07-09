@@ -16,6 +16,23 @@ environment "dev" {
 			}
 		}
 	}*/
+	cloudflare {
+		apikey = ""
+		dns {
+			type = "A"
+			name = "mainproject.com"
+			content = "{{range i, server := resourcesbypackage.cockroachdb}}{{ server.publicip }},{{end}}"
+			ttl = "30m"
+			proxy = true
+		}
+		dns {
+			type = "A"
+			name = "{{range 100}}stream{.}.mainproject.com,{{end}}"
+			content = "{{range i, server := resourcesbypackage.cockroachdb}}{{ server.publicip }},{{end}}"
+			ttl = "30m"
+			proxy = true
+		}
+	}
 	vagrant {
 		DecommisionTag = "vagrantdev"
 		server "db" {

@@ -30,7 +30,7 @@ func dogoCommand(config *schema.Config, environment *schema.Environment, command
 		c := root.Children[0].(*packageCommand)
 		c.execute(true)
 	} else {
-		r := commandtree.NewRunner(root, 5)
+		r := commandtree.NewRunner(root, 10)
 		go r.Run(nil)
 		commandtree.ConsoleUI(root)
 	}

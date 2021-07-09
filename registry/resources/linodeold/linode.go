@@ -1,12 +1,10 @@
-package linode
+package linodeold
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -16,12 +14,10 @@ import (
 
 	"regexp"
 
-	"github.com/linode/linodego"
 	"github.com/oliverkofoed/dogo/commandtree"
 	"github.com/oliverkofoed/dogo/schema"
 	"github.com/oliverkofoed/dogo/snobgob"
 	"github.com/oliverkofoed/dogo/ssh"
-	"golang.org/x/oauth2"
 )
 
 const cacheDir = ".dogocache/linode/"
@@ -75,17 +71,14 @@ func (g *LinodeGroup) Validate() error {
 var accountsLock sync.RWMutex
 var accounts = make(map[string]*linodeAccount)
 var oneList sync.Once
-
-//var nodeList []linode
+var nodeList []linode
 
 // Manager is the main entry point for this resource type
 var Manager = schema.ResourceManager{
-	Name:              "linode",
+	Name:              "linodeold",
 	ResourcePrototype: &Linode{},
 	GroupPrototype:    &LinodeGroup{},
 	Provision: func(group interface{}, resource interface{}, l schema.Logger) error {
-		ctx := context.Background()
-
 		g := group.(*LinodeGroup)
 		s := resource.(*Linode)
 
@@ -126,21 +119,11 @@ var Manager = schema.ResourceManager{
 			}
 		}
 
-		// create client
-		client := linodego.NewClient(&http.Client{
-			Transport: &oauth2.Transport{
-				Source: oauth2.StaticTokenSource(&oauth2.Token{AccessToken: apikey}),
-			},
-		})
-		client.SetRetryMaxWaitTime(time.Second * 60 * 15)
-		client.SetRetryMaxWaitTime(time.Second * 20)
-		//client.SetDebug(true)
-
 		// get the manager for that account
 		accountsLock.Lock()
 		account, found := accounts[apikey]
 		if !found {
-			account = &linodeAccount{client: &client}
+			account = &linodeAccount{client: &client{apikey: apikey}}
 			accounts[apikey] = account
 		}
 		accountsLock.Unlock()
@@ -174,15 +157,15 @@ var Manager = schema.ResourceManager{
 				}
 			}
 
-			err = account.create(s, g.DecommissionTag, label, l, rootPassword, string(publicKey))
+			err = account.create(s, label, l, rootPassword, string(publicKey))
 			if err != nil {
 				l.Errf("Could not create server %v: %v", s.Name, err)
 
 				// remove the node that was created, if any
 				if nodes, err := account.listServers(l); err == nil {
 					for _, node := range nodes {
-						if node.Label == label {
-							l.Logf("Trying to remove half-backed server %v", node.Label)
+						if node.LABEL == label {
+							l.Logf("Trying to remove half-backed server %v", node.LABEL)
 							account.decommissionServer(node, l)
 						}
 					}
@@ -208,16 +191,16 @@ var Manager = schema.ResourceManager{
 		}
 
 		// get the ip
-		ips, err := account.client.GetInstanceIPAddresses(ctx, server.ID)
-		//ips, err := account.client.lindeIPList(server.LINODEID)
+		ips, err := account.client.lindeIPList(server.LINODEID)
 		if err != nil {
 			return fmt.Errorf("Could not get ip for server %v: %v", s.Name, err)
 		}
-		for _, ip := range ips.IPv4.Public {
-			info.PublicIPs = append(info.PublicIPs, ip.Address)
-		}
-		for _, ip := range ips.IPv4.Private {
-			info.PrivateIPs = append(info.PrivateIPs, ip.Address)
+		for _, ip := range ips {
+			if ip.ISPUBLIC == 1 {
+				info.PublicIPs = append(info.PublicIPs, ip.IPADDRESS)
+			} else {
+				info.PrivateIPs = append(info.PrivateIPs, ip.IPADDRESS)
+			}
 		}
 
 		// write info to disk
@@ -244,18 +227,11 @@ var Manager = schema.ResourceManager{
 					return nil, err
 				}
 
-				// create client
-				client := linodego.NewClient(&http.Client{
-					Transport: &oauth2.Transport{
-						Source: oauth2.StaticTokenSource(&oauth2.Token{AccessToken: apikey}),
-					},
-				})
-
 				// get the manager for that account
 				accountsLock.Lock()
 				account, found := accounts[apikey]
 				if !found {
-					account = &linodeAccount{client: &client}
+					account = &linodeAccount{client: &client{apikey: apikey}}
 					accounts[apikey] = account
 				}
 				accountsLock.Unlock()
@@ -267,18 +243,18 @@ var Manager = schema.ResourceManager{
 				}
 
 				for _, node := range servers {
-					if strings.HasPrefix(node.Label, group.DecommissionTag+"_") {
+					if strings.HasPrefix(node.LABEL, group.DecommissionTag+"_") {
 						found := false
 						for _, name := range names {
-							if node.Label == group.DecommissionTag+"_"+name {
+							if node.LABEL == group.DecommissionTag+"_"+name {
 								found = true
 								break
 							}
 						}
 
 						if !found {
-							unusedNames = append(unusedNames, node.Label)
-							decommisionRoot.Add("Decommission "+node.Label, &decommisionCommand{account: account, node: node})
+							unusedNames = append(unusedNames, node.LABEL)
+							decommisionRoot.Add("Decommission "+node.LABEL, &decommisionCommand{account: account, node: node})
 						}
 					}
 				}
@@ -292,7 +268,7 @@ var Manager = schema.ResourceManager{
 type decommisionCommand struct {
 	commandtree.Command
 	account *linodeAccount
-	node    linodego.Instance
+	node    linode
 }
 
 func (c *decommisionCommand) Execute() {
@@ -304,18 +280,54 @@ func (c *decommisionCommand) Execute() {
 
 type linodeAccount struct {
 	sync.RWMutex
-	client          *linodego.Client
-	listServerCache map[string]linodego.Instance
+	client          *client
+	listServerCache map[string]linode
 }
 
-func (a *linodeAccount) decommissionServer(node linodego.Instance, l schema.Logger) error {
-	l.Logf("deleting instance %v (%v)", node.Label, node.ID)
-	return a.client.DeleteInstance(context.Background(), node.ID)
+func (a *linodeAccount) decommissionServer(node linode, l schema.Logger) error {
+	// shutdown
+	l.Logf("shutting down")
+	err := a.client.linodeShutdown(node.LINODEID)
+	if err != nil {
+		return err
+	}
+	err = a.waitForJobsToFinish(node.LINODEID, time.Minute*4, "", l)
+	if err != nil {
+		return err
+	}
+
+	// list disks
+	l.Logf("listing disks")
+	disks, err := a.client.linodeDiskList(node.LINODEID)
+	if err != nil {
+		return err
+	}
+
+	// delete disks
+	for _, d := range disks {
+		l.Logf("deleting disk: %v", d.DISKID)
+		err := a.client.linodeDiskDelete(node.LINODEID, d.DISKID)
+		if err != nil {
+			return err
+		}
+	}
+	err = a.waitForJobsToFinish(node.LINODEID, time.Minute*10, "", l)
+	if err != nil {
+		return err
+	}
+
+	// delete node.
+	l.Logf("deleting linode")
+	err = a.client.linodeDelete(node.LINODEID)
+	a.listServerCache = nil
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (a *linodeAccount) listServers(l schema.Logger) (map[string]linodego.Instance, error) {
-	ctx := context.Background()
-
+func (a *linodeAccount) listServers(l schema.Logger) (map[string]linode, error) {
 	a.Lock()
 	defer a.Unlock()
 
@@ -323,14 +335,14 @@ func (a *linodeAccount) listServers(l schema.Logger) (map[string]linodego.Instan
 		return a.listServerCache, nil
 	}
 
-	list, err := a.client.ListInstances(ctx, nil)
+	list, err := a.client.linodeList()
 	if err != nil {
 		return nil, err
 	}
 
-	m := make(map[string]linodego.Instance)
+	m := make(map[string]linode)
 	for _, node := range list {
-		m[node.Label] = node
+		m[node.LABEL] = node
 	}
 	a.listServerCache = m
 	return a.listServerCache, nil
@@ -338,20 +350,18 @@ func (a *linodeAccount) listServers(l schema.Logger) (map[string]linodego.Instan
 
 var infoOnce sync.Once
 var initError error
-var datacenters []linodego.Region
-var distributions []linodego.Image
-var kernels []linodego.LinodeKernel
-var plans []linodego.LinodeType
+var datacenters []datacenter
+var distributions []distribution
+var kernels []kernel
+var plans []plan
 
-func (a *linodeAccount) create(s *Linode, decomissionsTag string, label string, l schema.Logger, rootPassword string, rootSSHKey string) error {
-	ctx := context.Background()
-
+func (a *linodeAccount) create(s *Linode, label string, l schema.Logger, rootPassword string, rootSSHKey string) error {
 	// load initial data in parallel.
 	infoOnce.Do(func() {
 		var wg sync.WaitGroup
 		wg.Add(4)
 		go func() {
-			if d, err := a.client.ListRegions(ctx, nil); err == nil {
+			if d, err := a.client.availDatacenters(); err == nil {
 				datacenters = d
 			} else {
 				initError = err
@@ -359,7 +369,7 @@ func (a *linodeAccount) create(s *Linode, decomissionsTag string, label string, 
 			wg.Done()
 		}()
 		go func() {
-			if p, err := a.client.ListTypes(ctx, nil); err == nil {
+			if p, err := a.client.availLinodeplans(); err == nil {
 				plans = p
 			} else {
 				initError = err
@@ -367,16 +377,16 @@ func (a *linodeAccount) create(s *Linode, decomissionsTag string, label string, 
 			wg.Done()
 		}()
 		go func() {
-			if p, err := a.client.ListImages(ctx, nil); err == nil {
-				distributions = p
+			if d, err := a.client.availDistributions(); err == nil {
+				distributions = d
 			} else {
 				initError = err
 			}
 			wg.Done()
 		}()
 		go func() {
-			if d, err := a.client.ListKernels(ctx, nil); err == nil {
-				kernels = d
+			if k, err := a.client.availKernels(); err == nil {
+				kernels = k
 			} else {
 				initError = err
 			}
@@ -389,83 +399,79 @@ func (a *linodeAccount) create(s *Linode, decomissionsTag string, label string, 
 	}
 
 	// find datacenter
-	datacenterID := ""
+	datacenterID := -1
 	wantedDataCenter, err := s.Datacenter.Render(nil)
 	if err != nil {
 		return err
 	}
 	for _, dc := range datacenters {
-		if dc.ID == wantedDataCenter {
-			datacenterID = dc.ID
+		if dc.ABBR == wantedDataCenter {
+			datacenterID = dc.DATACENTERID
 		}
 	}
-	if datacenterID == "" {
+	if datacenterID == -1 {
 		avaliableDataCenters := make([]string, 0, len(datacenters))
 		for _, dc := range datacenters {
-			avaliableDataCenters = append(avaliableDataCenters, fmt.Sprintf("\"%v\" (%v)", dc.ID, dc.Country))
+			avaliableDataCenters = append(avaliableDataCenters, dc.ABBR)
 		}
 		return fmt.Errorf("'%v' is not a valid datacenter. Avaliable data centers: [%v]", wantedDataCenter, strings.Join(avaliableDataCenters, ","))
 	}
 
 	// find plan
-	var plan *linodego.LinodeType
+	var plan plan
 	wantedPlan, err := s.Plan.Render(nil)
 	if err != nil {
 		return err
 	}
 	for _, p := range plans {
-		if p.Label == wantedPlan {
-			plan = &p
-			break
+		if planString(&p) == wantedPlan {
+			plan = p
 		}
 	}
-	if plan == nil {
+	if plan.PLANID == 0 {
 		avaliablePlans := make([]string, 0, len(plans))
 		for _, p := range plans {
-			avaliablePlans = append(avaliablePlans, fmt.Sprintf(" - \"%v\" (ram:%v, transfer:%v, price:$%v)", p.Label, p.Memory, p.Transfer, p.Price.Monthly))
+			avaliablePlans = append(avaliablePlans, planString(&p))
 		}
-		return fmt.Errorf("'%v' is not a valid plan. Avaliable plans: \n%v", wantedPlan, strings.Join(avaliablePlans, ",\n"))
+		return fmt.Errorf("'%v' is not a valid plan. Avaliable plans: [%v]", wantedPlan, strings.Join(avaliablePlans, ","))
 	}
 
 	// find kernel
-	var kernel linodego.LinodeKernel
+	kernelID := -1
 	wantedKernel, err := s.Kernel.Render(nil)
 	if err != nil {
 		return err
 	}
-	avaliableKernels := make([]string, 0, len(kernels))
 	for _, k := range kernels {
-		avaliableKernels = append(avaliableKernels, fmt.Sprintf(" - \"%v\" (arch: %v, kvm: %v, xen:%v, version:%v)", k.Label, k.Architecture, k.KVM, k.XEN, k.Version))
-	}
-	for _, k := range kernels {
-		if strings.HasPrefix(k.Label, wantedKernel) {
-			if kernel.ID != "" {
-				return fmt.Errorf("Multiple kernals match the prefix: '%v', please be more specific. Available kernels: \n%v", wantedKernel, strings.Join(avaliableKernels, "\n"))
-			}
-			kernel = k
+		if k.LABEL == wantedKernel {
+			kernelID = k.KERNELID
 		}
 	}
-	if kernel.ID == "" {
-		return fmt.Errorf("'%v' is not a valid kernel. Avaliable kernels: \n%v", wantedKernel, strings.Join(avaliableKernels, "\n"))
+	if kernelID == -1 {
+		avaliableKernels := make([]string, 0, len(kernels))
+		for _, k := range kernels {
+			avaliableKernels = append(avaliableKernels, k.LABEL)
+		}
+		return fmt.Errorf("'%v' is not a valid kernel. Avaliable kernels: [%v]", wantedKernel, strings.Join(avaliableKernels, ","))
 	}
 
 	// find distribution
-	var dist linodego.Image
+	var dist distribution
 	wantedDistribution, err := s.Distribution.Render(nil)
 	if err != nil {
 		return err
 	}
 	for _, d := range distributions {
-		if d.Label == wantedDistribution {
+		if d.LABEL == wantedDistribution {
 			dist = d
 		}
 	}
-	if dist.ID == "" {
+	if dist.DISTRIBUTIONID == 0 {
 		avaliableDistributions := make([]string, 0, len(distributions))
 		for _, d := range distributions {
-			avaliableDistributions = append(avaliableDistributions, fmt.Sprintf(" - \"%v\" (%v, %vmb)", d.Label, d.Vendor, d.Size))
+			avaliableDistributions = append(avaliableDistributions, d.LABEL)
 		}
-		return fmt.Errorf("'%v' is not a valid distribution. Avaliable distributions: \n%v", wantedDistribution, strings.Join(avaliableDistributions, "\n"))
+		return fmt.Errorf("'%v' is not a valid distribution. Avaliable distributions: [%v]", wantedDistribution, strings.Join(avaliableDistributions, ","))
 	}
 
 	// find disks
@@ -493,38 +499,38 @@ func (a *linodeAccount) create(s *Linode, decomissionsTag string, label string, 
 
 		disks = append(disks, &disk{
 			label:          fmt.Sprintf("%v%v", diskType, len(disks)+1),
-			distributionID: "",
+			distributionID: -1,
 			diskType:       diskType,
 			size:           diskSize,
 		})
 	}
 
 	// calculate disk sizes
-	totalHD := plan.Disk
+	totalHD := plan.DISK * 1024
 	diskSizeUsed := 0
 	for _, disk := range disks {
 		diskSizeUsed += disk.size
 	}
-	disks = append([]*disk{{
-		label:          dist.Label,
-		distributionID: dist.ID,
+	if totalHD-diskSizeUsed-dist.MINIMAGESIZE < 0 {
+		return fmt.Errorf("The size of the distribution (%v) + the combined size of other disks (%v) exceeds the capacity of the machine (%v)", dist.MINIMAGESIZE, diskSizeUsed, totalHD)
+	}
+	disks = append([]*disk{&disk{
+		label:          dist.LABEL,
+		distributionID: dist.DISTRIBUTIONID,
 		size:           totalHD - diskSizeUsed,
 	}}, disks...)
 
-	// create instance
-	l.Logf(" - creating instance %v", label)
-	booted := false
-	createOptions := linodego.InstanceCreateOptions{
-		Region:         datacenterID,
-		Type:           plan.ID,
-		Label:          label,
-		Group:          decomissionsTag,
-		RootPass:       rootPassword,
-		AuthorizedKeys: []string{rootSSHKey},
-		Booted:         &booted,
-	}
+	// create the linode
+	l.Logf(" - creating linode")
+	linodeID, err := a.client.linodeCreate(datacenterID, plan.PLANID)
 	a.listServerCache = nil
-	instance, err := a.client.CreateInstance(ctx, createOptions)
+	if err != nil {
+		return err
+	}
+
+	// set the node label
+	l.Logf(" - setting label to %v", label)
+	err = a.client.linodeUpdateLabel(linodeID, label)
 	if err != nil {
 		return err
 	}
@@ -535,109 +541,106 @@ func (a *linodeAccount) create(s *Linode, decomissionsTag string, label string, 
 	}
 	for i := 0; i < s.PrivateIPs; i++ {
 		l.Logf(" - adding private ip #%v", i+1)
-		_, err = a.client.AddInstanceIPAddress(ctx, instance.ID, false)
+		err = a.client.linodeIPAddPrivate(linodeID)
 		if err != nil {
 			return err
 		}
 	}
 
 	// create the disks.
+	jobs := make([]createDiskJob, 0, 0)
 	for _, disk := range disks {
-		createOptions := linodego.InstanceDiskCreateOptions{
-			Label:      disk.label,
-			Size:       disk.size,
-			Filesystem: disk.diskType,
-		}
-		if disk.distributionID != "" {
+		if disk.distributionID > 0 {
 			l.Logf(" - creating os disk of size %v", disk.size)
-			createOptions.Image = disk.distributionID
-			createOptions.RootPass = rootPassword
-			createOptions.AuthorizedKeys = []string{rootSSHKey}
+			j, err := a.client.linodeDiskCreateFromDistribution(linodeID, disk.distributionID, disk.label, disk.size, rootPassword, rootSSHKey)
+			if err != nil {
+				return err
+			}
+			disk.id = j.DiskID
+			jobs = append(jobs, j)
 		} else {
 			l.Logf(" - creating %v disk of size %v", disk.diskType, disk.size)
+			j, err := a.client.linodeDiskCreate(linodeID, disk.label, disk.diskType, false, disk.size)
+			if err != nil {
+				return err
+			}
+			disk.id = j.DiskID
+			jobs = append(jobs, j)
 		}
-		j, err := a.client.CreateInstanceDisk(ctx, instance.ID, createOptions)
-		if err != nil {
-			return err
-		}
-		disk.id = j.ID
+	}
+
+	// Wait for disks to be created
+	if err := a.waitForJobsToFinish(linodeID, time.Minute*5, "   ", l); err != nil {
+		return err
 	}
 
 	// create configuration for the machine
-	devices := linodego.InstanceConfigDeviceMap{}
+	disklist := ""
 	for i, disk := range disks {
-		switch i {
-		case 0:
-			devices.SDA = &linodego.InstanceConfigDevice{DiskID: disk.id}
-			break
-		case 1:
-			devices.SDB = &linodego.InstanceConfigDevice{DiskID: disk.id}
-			break
-		case 2:
-			devices.SDC = &linodego.InstanceConfigDevice{DiskID: disk.id}
-			break
-		case 3:
-			devices.SDD = &linodego.InstanceConfigDevice{DiskID: disk.id}
-			break
-		case 4:
-			devices.SDE = &linodego.InstanceConfigDevice{DiskID: disk.id}
-			break
-		case 5:
-			devices.SDF = &linodego.InstanceConfigDevice{DiskID: disk.id}
-			break
+		if i > 0 {
+			disklist += ","
 		}
+		disklist += fmt.Sprintf("%v", disk.id)
 	}
-
-	// create configuration
 	l.Logf(" - creating server configuration.")
-	_, err = a.client.CreateInstanceConfig(ctx, instance.ID, linodego.InstanceConfigCreateOptions{
-		Label:    dist.ID,
-		Comments: "",
-		Devices:  devices,
-		Helpers: &linodego.InstanceConfigHelpers{
-			UpdateDBDisabled:  true,
-			Distro:            true,
-			ModulesDep:        true,
-			Network:           true,
-			DevTmpFsAutomount: true,
-		},
-		MemoryLimit: 0,
-		Kernel:      kernel.ID,
-		RunLevel:    "default",
-		VirtMode:    "paravirt",
-	})
+	_, err = a.client.linodeConfigCreate(linodeID, kernelID, dist.LABEL, "", 0, disklist, "paravirt", "default", 1, "", false, true, true, true, true, true)
 	if err != nil {
 		return err
 	}
 
-	// boot instance
-	l.Logf(" - booting instance.")
-	err = a.client.BootInstance(ctx, instance.ID, 0)
+	// boot the machine
+	l.Logf(" - booting machine")
+	err = a.client.linodeBoot(linodeID)
 	if err != nil {
 		return err
 	}
 
-	end := time.Now().Add(time.Second * 60)
-	for time.Now().Before(end) {
-		time.Sleep(time.Second * 5)
-		ns, err := a.client.GetInstance(ctx, instance.ID)
+	// wait for boot to complete
+	if err := a.waitForJobsToFinish(linodeID, time.Minute*5, "   ", l); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (a *linodeAccount) waitForJobsToFinish(linodeID int, maxWait time.Duration, messagePrefix string, l schema.Logger) error {
+	start := time.Now()
+	lastUnfinished := 0
+	for {
+		jobs, err := a.client.linodeJobList(linodeID, true)
 		if err != nil {
 			return err
 		}
+		unfinished := 0
+		names := make([]string, 0)
+		for _, j := range jobs {
+			if j.HOST_FINISH_DT == "" {
+				names = append(names, j.ACTION)
+				unfinished++
+			}
+		}
 
-		if ns.Status != linodego.InstanceRunning {
-			l.Logf("   -> status:" + string(ns.Status))
-		} else {
-			return nil
+		if unfinished == 0 {
+			break
+		}
+
+		if unfinished != lastUnfinished {
+			if unfinished == 1 {
+				l.Logf(messagePrefix+"waiting for 1 job to finish: %v", names[0])
+			} else if unfinished > 1 {
+				l.Logf(messagePrefix+"waiting for %v jobs to finish: %v", unfinished, strings.Join(names, ", "))
+			}
+			lastUnfinished = unfinished
+		}
+
+		time.Sleep(time.Second * 1)
+		if time.Since(start) > maxWait {
+			return fmt.Errorf("aborting after waiting %v for jobs to finish", time.Since(start))
 		}
 	}
-	return fmt.Errorf("timed out wating for device to boot.")
+	return nil
 }
 
-type disk struct {
-	id             int
-	label          string
-	distributionID string
-	diskType       string
-	size           int
+func planString(p *plan) string {
+	return fmt.Sprintf("%v/%vcores/%vmb/%vgb/%vxfer", p.LABEL, p.CORES, p.RAM, p.DISK, p.XFER)
 }
