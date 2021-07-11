@@ -17,19 +17,21 @@ environment "dev" {
 		}
 	}*/
 	cloudflare {
-		apikey = ""
-		dns {
+		provisioning_group = 2
+		apitoken = "afdsafs"
+		zoneid = "anc"
+		dns "maindns" {
 			type = "A"
 			name = "mainproject.com"
-			content = "{{range i, server := resourcesbypackage.cockroachdb}}{{ server.publicip }},{{end}}"
-			ttl = "30m"
+			content = "{{range i, server := resourcesbypackage.memcached}}{{ server.public_ip }},{{end}}"
+			ttl = "30"
 			proxy = true
 		}
-		dns {
+		dns "streamdomain"{
 			type = "A"
-			name = "{{range 100}}stream{.}.mainproject.com,{{end}}"
-			content = "{{range i, server := resourcesbypackage.cockroachdb}}{{ server.publicip }},{{end}}"
-			ttl = "30m"
+			name = "stream[0-100].mainproject.com"
+			content = "{{range i, server := resourcesbypackage.memcached}}{{ server.public_ip }},{{end}}"
+			ttl = "30"
 			proxy = true
 		}
 	}
@@ -41,6 +43,12 @@ environment "dev" {
 			address="0.0.0.0"
 			//package "webserver" {}
 			//package "memcached" {}
+
+			public_ip_interface = "eth0"
+			private_ip_interface = "eth0"
+			public_ip = "{{ lookup(self.networkinterface[self.public_ip_interface],0) }}"
+			private_ip = "{{ lookup(self.networkinterface[self.private_ip_interface],1) }}"
+
 			package "ssh" {}
 			package "developmentmachine" {} 
 		}
@@ -48,11 +56,15 @@ environment "dev" {
 			count = 3
 			count_skip = [2]
 
+			public_ip_interface = "eth0"
+			private_ip_interface = "eth0"
+			public_ip = "{{ lookup(self.networkinterface[self.public_ip_interface],0) }}"
+			private_ip = "{{ lookup(self.networkinterface[self.private_ip_interface],1) }}"
+
 			box = "ubuntu/trusty64"
 			datacenter = "local"
 			privateips = ["192.162.100.{{20+int(self.instanceid)}}", "192.162.200.{{20+int(self.instanceid)}}"]			
 			address="0.0.0.0"
-			thing = "{{self.networkinterface.eth0[0]}}"
 			//package "webserver" {}
 			package "memcached" {}
 			package "webserver" {}

@@ -37,12 +37,6 @@ var Manager = schema.ResourceManager{
 		g := group.(*Cloudflare)
 		d := resource.(*DNS)
 
-		// get api and records for zone
-		api, zoneID, records, err := getApiAndRecords(ctx, g)
-		if err != nil {
-			return err
-		}
-
 		// generate records
 		typeID, err := d.Type.Render(nil)
 		if err != nil {
@@ -126,12 +120,19 @@ var Manager = schema.ResourceManager{
 			targetRecords[name] = append(arr, content)
 		}
 
+		// get api and records for zone
+		api, zoneID, records, err := getApiAndRecords(ctx, g)
+		if err != nil {
+			return err
+		}
+
 		for targetName, targets := range targetRecords {
 			for _, targetContent := range targets {
 				var foundRecord *cloudflarego.DNSRecord
 				for _, record := range records[targetName] {
 					if record.Name == targetName && record.Content == targetContent {
 						foundRecord = &record
+						break
 					}
 				}
 				if foundRecord != nil {

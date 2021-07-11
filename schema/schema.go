@@ -72,13 +72,14 @@ type ServerConnection interface {
 
 // Resource represents a resource in a deployment infrastructure, such as a server or load balancer or firewall
 type Resource struct {
-	Name         string
-	Manager      *ResourceManager
-	ManagerGroup interface{}
-	Resource     interface{}
-	Packages     map[string]bool // packagename => used on this resource
-	Data         map[string]interface{}
-	Modules      map[string]interface{}
+	Name              string
+	Manager           *ResourceManager
+	ManagerGroup      interface{}
+	Resource          interface{}
+	ProvisioningGroup int
+	Packages          map[string]bool // packagename => used on this resource
+	Data              map[string]interface{}
+	Modules           map[string]interface{}
 }
 
 // ServerResource is a resource we can connect via SSH

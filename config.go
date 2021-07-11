@@ -276,6 +276,7 @@ func parseEnvironments(errors *[]error, config *schema.Config, configFiles map[s
 								Name:            environmentName,
 								Resources:       make(map[string]*schema.Resource),
 								DeploymentHooks: make([]*schema.DeploymentHook, 0),
+								ManagerGroups:   make(map[string][]interface{}),
 							}
 							config.Environments[environmentName] = env
 						}
@@ -304,91 +305,99 @@ func parseEnvironments(errors *[]error, config *schema.Config, configFiles map[s
 									continue
 								}
 
-								env.ManagerGroups = make(map[string][]interface{})
 								if resourceManager, found := registry.ResourceManagers[providerName]; found {
 									for _, g := range v6 {
 										group, errs := resourceGroupConstructor[providerName].Construct(location+".", []map[string]interface{}{g}, nil)
 										addErrors(errors, location, errs)
 
-										//arr, found :=
 										env.ManagerGroups[resourceManager.Name] = append(env.ManagerGroups[resourceManager.Name], group) //= append(env.ManagerGroups, group)
 
-										for name, conf := range g {
-											if name == "server" {
-												location = filename + " -> environment." + environmentName + "." + providerName + "." + name
-												v7, ok := conf.([]map[string]interface{})
-												if !ok {
-													addError(errors, location, "Invalid server definition of '%v'", providerName)
-													continue
-												}
+										// provisioning group
+										provisioning_group := 0
+										if v, ok := g["provisioning_group"]; ok {
+											delete(g, "provisioning_group")
+											if ctr, ok := v.(int); ok && ctr > 0 && ctr < 10000000 {
+												provisioning_group = ctr
+											}
+										}
 
-												for _, v8 := range v7 {
-													for serverName, conf := range v8 {
-														location = filename + " -> environment." + environmentName + "." + providerName + "." + name + "." + serverName
-														v9, ok := conf.([]map[string]interface{})
-														if !ok {
-															addError(errors, location, "Invalid resource provider definition of '%v'", providerName)
+										for name, conf := range g {
+											location = filename + " -> environment." + environmentName + "." + providerName + "." + name
+											v7, ok := conf.([]map[string]interface{})
+											if !ok {
+												//addError(errors, location, "Invalid server definition of '%v'", providerName)
+												continue
+											}
+
+											for _, v8 := range v7 {
+												for resourceName, conf := range v8 {
+													location = filename + " -> environment." + environmentName + "." + providerName + "." + name + "." + resourceName
+													v9, ok := conf.([]map[string]interface{})
+													if !ok {
+														addError(errors, location, "Invalid resource provider definition of '%v'", providerName)
+														continue
+													}
+													v9flat := flatten(v9)
+
+													// how many resources to create
+													count := 1
+													hasCount := false
+													if v, ok := v9flat["count"]; ok {
+														delete(v9flat, "count")
+														if ctr, ok := v.(int); ok && ctr > 0 && ctr < 10000 {
+															hasCount = true
+															count = ctr
+														}
+													}
+
+													// parse count_skip
+													countSkip := make(map[int]bool)
+													if v, ok := v9flat["count_skip"]; ok {
+														delete(v9flat, "count_skip")
+														if arr, ok := v.([]interface{}); ok {
+															for _, id := range arr {
+																if num, ok := id.(int); ok {
+																	countSkip[num] = true
+																}
+															}
+														}
+													}
+
+													// create resources
+													for i := 1; i <= count; i++ {
+														instanceName := resourceName
+														if count > 1 || hasCount {
+															instanceName = fmt.Sprintf("%v_%v", resourceName, i)
+														}
+
+														// honor count_skip
+														if _, found := countSkip[i]; found {
+															//fmt.Println("skiping", instanceName)
 															continue
 														}
-														v9flat := flatten(v9)
 
-														// how many resources to create
-														count := 1
-														hasCount := false
-														if v, ok := v9flat["count"]; ok {
-															delete(v9flat, "count")
-															if ctr, ok := v.(int); ok && ctr > 0 && ctr < 10000 {
-																hasCount = true
-																count = ctr
-															}
+														// check that the name is unique
+														if _, found := env.Resources[instanceName]; found {
+															addError(errors, location, "the environment already has a resource with the name: %v", instanceName)
+															continue
 														}
 
-														// parse count_skip
-														countSkip := make(map[int]bool)
-														if v, ok := v9flat["count_skip"]; ok {
-															delete(v9flat, "count_skip")
-															if arr, ok := v.([]interface{}); ok {
-																for _, id := range arr {
-																	if num, ok := id.(int); ok {
-																		countSkip[num] = true
-																	}
-																}
+														// build data map
+														data := make(map[string]interface{})
+														modules := make(map[string]interface{})
+														data["name"] = instanceName
+														data["instanceid"] = i
+														for k, v := range v9flat {
+															if _, found := registry.ModuleManagers[k]; found {
+																continue // skip module extra config
 															}
+															data[k] = v
 														}
 
-														// create resources
-														for i := 1; i <= count; i++ {
-															instanceName := serverName
-															if count > 1 || hasCount {
-																instanceName = fmt.Sprintf("%v_%v", serverName, i)
-															}
-
-															// honor count_skip
-															if _, found := countSkip[i]; found {
-																//fmt.Println("skiping", instanceName)
-																continue
-															}
-
-															// check that the name is unique
-															if _, found := env.Resources[instanceName]; found {
-																addError(errors, location, "the environment already has a resource with the name: %v", instanceName)
-																continue
-															}
-
-															// build data map
-															data := make(map[string]interface{})
-															modules := make(map[string]interface{})
+														// special handling of server
+														usedPackages := make(map[string]bool)
+														if name == "server" {
 															data["modules"] = modules
-															data["name"] = instanceName
-															data["instanceid"] = i
-															for k, v := range v9flat {
-																if _, found := registry.ModuleManagers[k]; found {
-																	continue // skip module extra config
-																}
-																data[k] = v
-															}
-
-															// build modules list for every module
 															for _, m := range registry.ModuleManagers {
 																if m.ModulePrototype != nil {
 																	modules[m.Name] = reflect.MakeSlice(reflect.SliceOf(reflect.TypeOf(m.ModulePrototype)), 0, 0).Interface()
@@ -396,7 +405,6 @@ func parseEnvironments(errors *[]error, config *schema.Config, configFiles map[s
 															}
 
 															// build modules from all used packages
-															usedPackages := make(map[string]bool)
 															if packages, found := v9flat["package"]; found {
 																packV, ok := packages.([]map[string]interface{})
 																if !ok {
@@ -459,31 +467,33 @@ func parseEnvironments(errors *[]error, config *schema.Config, configFiles map[s
 																	}
 																}
 															}
+														}
 
-															// construct resource.
-															vars := make(map[string]interface{})
-															vars["self"] = data
-															resource, errs := resourceConstructor[providerName].Construct("", []map[string]interface{}{data}, vars)
-															addErrors(errors, location, errs)
+														// construct resource.
+														vars := make(map[string]interface{})
+														vars["self"] = data
+														resource, errs := resourceConstructor[providerName].Construct("", []map[string]interface{}{data}, vars)
+														addErrors(errors, location, errs)
 
-															// add the resource
-															if resource != nil {
-																env.Resources[instanceName] = &schema.Resource{
-																	Name:         instanceName,
-																	Data:         data,
-																	Manager:      resourceManager,
-																	ManagerGroup: group,
-																	Packages:     usedPackages,
-																	Modules:      modules,
-																	Resource:     resource,
-																}
+														// add the resource
+														if resource != nil {
+															env.Resources[instanceName] = &schema.Resource{
+																Name:              instanceName,
+																Data:              data,
+																Manager:           resourceManager,
+																ManagerGroup:      group,
+																Packages:          usedPackages,
+																Modules:           modules,
+																Resource:          resource,
+																ProvisioningGroup: provisioning_group,
 															}
 														}
 													}
 												}
-											} else {
-												//addError(errors, location, "Unknown element '%v'", name)
 											}
+											//} else {
+											//addError(errors, location, "Unknown element '%v'", name)
+											//}
 
 											continue
 										}

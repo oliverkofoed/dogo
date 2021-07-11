@@ -46,6 +46,8 @@ func dogoDeploy(config *schema.Config, environment *schema.Environment, allowDec
 	setTemplateGlobals(config, environment)
 
 	// create deploy commands
+	provisioningGroups := make(map[int][]*deployCommand)
+	provisioningGroupIds := make([]int, 0)
 	deployCommands := make(map[string]*deployCommand)
 	deployTask := commandtree.NewRootCommand("Deploying " + environment.Name)
 	for _, name := range sortKeys(environment.Resources) {
@@ -60,10 +62,20 @@ func dogoDeploy(config *schema.Config, environment *schema.Environment, allowDec
 		}
 		deployCommands[name] = cmd
 		deployTask.Add(environment.Name+"."+name, cmd)
+
+		arr, found := provisioningGroups[res.ProvisioningGroup]
+		if !found {
+			arr = make([]*deployCommand, 0)
+			provisioningGroupIds = append(provisioningGroupIds, res.ProvisioningGroup)
+		}
+		provisioningGroups[res.ProvisioningGroup] = append(arr, cmd)
 	}
+	sort.Slice(provisioningGroupIds, func(i, j int) bool {
+		return provisioningGroupIds[i] < provisioningGroupIds[j]
+	})
 
 	// Run!
-	r := commandtree.NewRunner(deployTask, 5)
+	r := commandtree.NewRunner(deployTask, 10)
 
 	go func() {
 		calcHooksCommand := &calculateDeploymentHooksCommand{
@@ -85,6 +97,7 @@ func dogoDeploy(config *schema.Config, environment *schema.Environment, allowDec
 			allowDecommission: allowDecommission,
 		}
 
+		gatheredOnce := false
 		step := deployStepGatherState
 		for {
 			// pre-run steps
@@ -107,7 +120,9 @@ func dogoDeploy(config *schema.Config, environment *schema.Environment, allowDec
 
 			// set state
 			for _, t := range deployCommands {
-				t.step = step
+				if t.step != deployStepDone {
+					t.step = step
+				}
 				if step == deployStepDone {
 					t.State = commandtree.CommandStateCompleted
 				} else {
@@ -115,13 +130,36 @@ func dogoDeploy(config *schema.Config, environment *schema.Environment, allowDec
 				}
 			}
 
+			// for gatherState; onlhy gather from current provisioningGroup
+			if step == deployStepGatherState {
+				for _, t := range deployCommands {
+					t.State = commandtree.CommandStatePaused
+				}
+				id := provisioningGroupIds[0]
+				provisioningGroupIds = provisioningGroupIds[1:]
+				for _, t := range provisioningGroups[id] {
+					t.State = commandtree.CommandStateReady
+				}
+				if gatheredOnce {
+					for _, t := range deployCommands {
+						t.stepExpandTemplates(false) // TODO: this will generate erorrs
+					}
+				}
+				gatheredOnce = true
+			}
+
 			// do a run.
-			noErrors := r.Run(nil)
-			if !noErrors || step == deployStepDone {
+			success := r.Run(nil)
+			if !success || step == deployStepDone {
 				for _, t := range deployCommands { // to stop statusprinter
 					t.State = commandtree.CommandStateCompleted
 				}
 				break
+			}
+
+			// go again if we're still gathering state
+			if step == deployStepGatherState && len(provisioningGroupIds) > 0 {
+				continue
 			}
 
 			// move forward a step
@@ -188,7 +226,7 @@ func (c *deployCommand) Execute() {
 	case deployStepGatherState:
 		c.stepGatherState()
 	case deployStepExpandTemplates:
-		c.stepExpandTemplates()
+		c.stepExpandTemplates(true)
 	case deployStepCalculateCommands:
 		c.stepCalculateCommands()
 	case deployStepLocalCommands:
@@ -224,22 +262,27 @@ func (c *deployCommand) stepGatherState() {
 			return
 		}
 		c.connection = connection
-	}
 
-	// 3. Get state
-	success := false
-	c.remoteState, c.requireSudo, success = getState(c.res, c.connection, c.requireSudo, c, c)
-	if !success {
-		return
-	}
+		// 3. Get state
+		success := false
+		c.remoteState, c.requireSudo, success = getState(c.res, c.connection, c.requireSudo, c, c)
+		if !success {
+			return
+		}
 
-	// wait for others
-	c.Logf("Waiting for state to be gathered from other servers")
+		// wait for others
+		c.Logf("Waiting for state to be gathered from other servers")
+	} else {
+		c.Logf("Provisioning complete")
+		c.step = deployStepDone
+	}
 }
 
-func (c *deployCommand) stepExpandTemplates() {
+func (c *deployCommand) stepExpandTemplates(logErrors bool) {
 	for _, err := range expandResourceTemplates(c.res, c.config) {
-		c.Err(err)
+		if logErrors {
+			c.Err(err)
+		}
 	}
 }
 
@@ -562,20 +605,25 @@ func expandResourceTemplates(resource *schema.Resource, config *schema.Config) [
 	vars := map[string]interface{}{"self": resource.Data}
 	for k, v := range resource.Data {
 		if str, ok := v.(string); ok {
-			// check if it's a template, by looking for '{{'
-			if strings.Contains(str, "{{") {
+			// keep expanding while it's a got templates in it
+			replace := true
+			for strings.Contains(str, "{{") {
 				t, err := config.TemplateSource.NewTemplate(k, str, vars)
 				if err != nil {
 					errors = append(errors, err)
-					continue
+					replace = false
+					break
 				}
-
 				output, err := t.Render(nil)
 				if err != nil {
 					errors = append(errors, err)
-				} else {
-					resource.Data[k] = output
+					replace = false
+					break
 				}
+				str = output
+			}
+			if replace {
+				resource.Data[k] = str
 			}
 		}
 	}
