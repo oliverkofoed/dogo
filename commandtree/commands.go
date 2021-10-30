@@ -111,6 +111,14 @@ func OSExec(owner *Command, dir string, logPrefix string, program string, args .
 	return cmd.Run()
 }
 
+func OSExecAllToStdOut(owner *Command, dir string, logPrefix string, program string, args ...string) error {
+	cmd := exec.Command(program, args...)
+	cmd.Dir = dir
+	cmd.Stdout = NewLogFuncWriter(logPrefix, owner.Logf)
+	cmd.Stderr = NewLogFuncWriter(logPrefix, owner.Logf)
+	return cmd.Run()
+}
+
 func NewLogFuncWriter(prefix string, log func(format string, args ...interface{})) io.Writer {
 	return &commandLogWriter{
 		log:    log,

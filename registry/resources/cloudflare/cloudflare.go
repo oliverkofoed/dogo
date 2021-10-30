@@ -127,16 +127,18 @@ var Manager = schema.ResourceManager{
 		}
 
 		for targetName, targets := range targetRecords {
+			sourceRecords := records[targetName]
 			for _, targetContent := range targets {
 				var foundRecord *cloudflarego.DNSRecord
-				for _, record := range records[targetName] {
-					if record.Name == targetName && record.Content == targetContent {
+				for i, record := range sourceRecords {
+					if record.Content == targetContent && record.Type == typeID {
 						foundRecord = &record
+						sourceRecords = append(sourceRecords[:i], sourceRecords[i+1:]...)
 						break
 					}
 				}
 				if foundRecord != nil {
-					if foundRecord.Type != typeID || (foundRecord.Proxied != nil && *foundRecord.Proxied != d.Proxy) || foundRecord.TTL != int(ttlInt) {
+					if (foundRecord.Proxied != nil && *foundRecord.Proxied != d.Proxy) || foundRecord.TTL != int(ttlInt) {
 						l.Logf("Updating record: %v (%v/%v) with type:%v, proxied:%v, ttl: %v", foundRecord.ID, foundRecord.Name, foundRecord.Content, typeID, d.Proxy, ttlInt)
 						// udpdate record
 						err := api.UpdateDNSRecord(ctx, zoneID, foundRecord.ID, cloudflarego.DNSRecord{
@@ -148,7 +150,6 @@ var Manager = schema.ResourceManager{
 							return fmt.Errorf("Could not update record#%v with type:%v, proxied:%v, ttl: %v. Error: %v", foundRecord.ID, typeID, d.Proxy, ttlInt, err)
 						}
 					}
-
 				} else {
 					// create dns record
 					l.Logf("Creating record with type:%v, name:%v, content:%v, proxied:%v, ttl:%v", typeID, targetName, targetContent, d.Proxy, ttlInt)
@@ -161,6 +162,15 @@ var Manager = schema.ResourceManager{
 					})
 					if err != nil {
 						return fmt.Errorf("Could not create record with type:%v, name:%v, content:%v, proxied:%v, ttl:%v. Error: %v", typeID, targetName, targetContent, d.Proxy, ttlInt, err)
+					}
+				}
+			}
+			for _, record := range sourceRecords {
+				if record.Type == typeID {
+					l.Logf("Deleting old record with type:%v, name:%v, content:%v, proxied:%v, ttl:%v", record.Type, record.Name, record.Content, record.Proxied, record.TTL)
+					err := api.DeleteDNSRecord(ctx, zoneID, record.ID)
+					if err != nil {
+						return fmt.Errorf("Could not delete old record with type:%v, name:%v, content:%v, proxied:%v, ttl:%v", record.Type, record.Name, record.Content, record.Proxied, record.TTL)
 					}
 				}
 			}
