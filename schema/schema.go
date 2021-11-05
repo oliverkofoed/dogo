@@ -91,6 +91,7 @@ type ServerResource interface {
 type ServerState struct {
 	Version string
 	OS      string
+	Arch    string
 	UID     int
 	Modules map[string]interface{}
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/oliverkofoed/dogo/registry/resources/linode"
 	"github.com/oliverkofoed/dogo/registry/resources/linodeold"
 	"github.com/oliverkofoed/dogo/registry/resources/localhost"
+	"github.com/oliverkofoed/dogo/registry/resources/qemu"
 	"github.com/oliverkofoed/dogo/registry/resources/server"
 	"github.com/oliverkofoed/dogo/registry/resources/vagrant"
 	"github.com/oliverkofoed/dogo/schema"
@@ -41,6 +42,7 @@ var ResourceManagers = map[string]*schema.ResourceManager{
 	linodeold.Manager.Name:  &linodeold.Manager,
 	localhost.Manager.Name:  &localhost.Manager,
 	cloudflare.Manager.Name: &cloudflare.Manager,
+	qemu.Manager.Name:       &qemu.Manager,
 	//virtualbox.Manager.Name: &virtualbox.Manager,
 }
 
@@ -79,6 +81,7 @@ func (c *GetStateCommand) Execute() {
 	state := &schema.ServerState{
 		Version: version.Version,
 		OS:      runtime.GOOS,
+		Arch:    runtime.GOARCH,
 		UID:     os.Getuid(),
 		Modules: make(map[string]interface{}),
 	}

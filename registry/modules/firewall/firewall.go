@@ -336,7 +336,7 @@ func (c *syncFirewallCommand) Execute() {
 		cmd.Stderr = buf
 		if err := cmd.Run(); err != nil && !strings.Contains(buf.String(), "start|restart|reload|force-reload|save|flush") {
 			c.Logf("Installing iptables-persistent")
-			cmd := exec.Command("/bin/bash", "-c", "DEBIAN_FRONTEND=noninteractive apt-get -y install iptables-persistent")
+			cmd := exec.Command("/bin/bash", "-c", "DEBIAN_FRONTEND=noninteractive apt-get update -y && DEBIAN_FRONTEND=noninteractive  apt-get -y install iptables-persistent")
 			cmd.Stdout = commandtree.NewLogFuncWriter(" - ", c.Logf)
 			cmd.Stderr = commandtree.NewLogFuncWriter(" - ", c.Logf)
 			if err := utilities.MachineExclusive(cmd.Run); err != nil {

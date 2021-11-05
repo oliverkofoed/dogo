@@ -434,16 +434,22 @@ func getState(resource *schema.Resource, connection schema.ServerConnection, use
 
 		// get os name
 		os := ""
+		arch := ""
 		if remoteState != nil {
 			os = remoteState.OS
+			arch = remoteState.Arch
 		}
-		if os == "" {
+		if os == "" || arch == "" {
 			l.Logf(" - checking OS (uname)")
 			os = "linux"
-			uname, err := connection.ExecuteCommand("uname")
+			arch = "amd64"
+			uname, err := connection.ExecuteCommand("uname -a")
 			if err == nil {
 				if strings.Contains(uname, "Darwin") {
 					os = "darwin"
+				}
+				if strings.Contains(uname, "arm64") {
+					arch = "arm64"
 				}
 			}
 			l.Logf("   it's %v. (%v)", os, strings.Replace(uname, "\n", "", 1))
@@ -466,7 +472,7 @@ func getState(resource *schema.Resource, connection schema.ServerConnection, use
 
 		// upload agent
 		l.Logf(" - uploading agent version: %v", version.Version)
-		agentBytes, err := Asset("agent/.build/agent." + os)
+		agentBytes, err := Asset("agent/.build/agent." + os + "." + arch)
 		if err != nil {
 			panic(err)
 		}

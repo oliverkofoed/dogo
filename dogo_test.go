@@ -19,5 +19,5 @@ func TestDogo(t *testing.T) {
 	} else {
 		fmt.Println("Parsing took", time.Since(start))
 	}
-	//dogoDeploy(conf, conf.Environments["dev"], false)
+	dogoDeploy(conf, conf.Environments["devqemu"], false)
 }

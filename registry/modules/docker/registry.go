@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/coreos/etcd/version"
 	"github.com/docker/distribution/configuration"
 	"github.com/docker/distribution/context"
@@ -16,6 +15,7 @@ import (
 	"github.com/docker/distribution/registry/handlers"
 	"github.com/docker/distribution/registry/listener"
 	_ "github.com/docker/distribution/registry/storage/driver/filesystem" // register filesystem for registry
+	log "github.com/sirupsen/logrus"
 )
 
 var registryPort = 52929
