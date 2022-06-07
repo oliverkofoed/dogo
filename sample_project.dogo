@@ -1,3 +1,22 @@
+environment "devqemu" {
+	tunnel_offset = 12000
+	qemu {
+		server "db" {
+			count = 3
+			system ="x86_64"
+			memory = 2048
+			storage = 30720
+
+			public_ip_interface = "ens3"
+			private_ip_interface = "ens3"
+			public_ip = "{{ lookup(self.networkinterface[self.public_ip_interface],0) }}"
+			private_ip = "{{ lookup(self.networkinterface[self.private_ip_interface],0) }}"
+
+			package "ssh" {}
+			package "developmentmachine" {} 
+		}
+	}
+}
 environment "dev" {
 	tunnel_offset = 10000
 	//after_deployment "migrate" {}   # run migrate after deployment (only important for first run)

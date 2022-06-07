@@ -62,7 +62,7 @@ bNP4v1aU3OLr0TLKYEkeZ44jOHtjUcq9Yx+dwAWHmVFC/2xZf92yceEofuVONB+X
 		SSHPublicKey: testmodule.MockFileTemplate([]byte(`ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDOAnQzPcSdxkchtQPer4RZbzM8DwPz4S7TNt3DM4ZQouxdJP2Bq/LRSFKANFPzoSadg93uz0OLwSRVF3LWp992Ip5B99kxp3+CvxrxumUjtS3QiROyKzcJ++XGmT+pHUjZbOobrfZvXka6SRxbaDNNM4qSP4CoQJUSmdGRMQcdhTxmQ+xJI0F3KfXWgLKWek0CTLmg34u1S9Am+qhmuS1jUZHtOarfc15AeTcmi0uXtXIJrpzgjVbYCFF9V9betUSu7qJVWmnx6lBiX36xohJkP7LaTbKL9elNVXKHM7atkoy3/Ggvg6btVlO7aWRYpM+FabC7NvxiG6YQ8RCI2s8x sample@bamble.com`)),
 		RootPassword: testmodule.MockTemplate(""),
 	}
-	err := linode.Manager.Provision(group, box1, l)
+	err = linode.Manager.Provision(group, box1, l)
 	if err != nil {
 		t.Error(err)
 		return

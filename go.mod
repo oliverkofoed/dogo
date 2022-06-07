@@ -13,7 +13,7 @@ require (
 	github.com/cloudflare/cloudflare-go v0.18.0 // indirect
 	github.com/containerd/containerd v1.4.4 // indirect
 	github.com/coreos/etcd v3.3.25+incompatible
-	github.com/docker/distribution v2.7.1+incompatible
+	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v20.10.6+incompatible
 	github.com/docker/docker-credential-helpers v0.6.3
 	github.com/docker/go-connections v0.4.0
@@ -45,4 +45,5 @@ require (
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1 // indirect
 	gotest.tools/v3 v3.0.3 // indirect
+	rsc.io/letsencrypt v0.0.3 // indirect
 )
