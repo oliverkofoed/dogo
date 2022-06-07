@@ -1,4 +1,6 @@
 possible improvements
+[x] docker build makes everything red
+[x] return errorcode when dockerbuild fails anything
 [x] Move away from JSON between client and agent (check: https://github.com/alecthomas/go_serialization_benchmarks)
 [x] Make it possible to stream status while agent does "getstatus".
 [x] agent.getstate can use tasks instead of waitgroup.

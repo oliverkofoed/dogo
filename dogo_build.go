@@ -57,7 +57,7 @@ func dogoBuild(config *schema.Config) {
 
 									c.Logf("Running build script")
 									start := time.Now()
-									if err := commandtree.OSExec(c, path, "", buildScriptPath); err != nil {
+									if err := commandtree.OSExecAllToStdOut(c, path, "", buildScriptPath); err != nil {
 										c.Err(err)
 										return
 									}
@@ -69,7 +69,7 @@ func dogoBuild(config *schema.Config) {
 								c.Logf("Building docker image with tag='%v'", name)
 								start := time.Now()
 
-								if err = commandtree.OSExec(c, path, "", "docker", "build", "--progress", "plain", "-t", name, "."); err != nil {
+								if err = commandtree.OSExecAllToStdOut(c, path, "", "docker", "build", "--progress", "plain", "-t", name, "."); err != nil {
 									c.Err(err)
 									return
 								}
@@ -84,7 +84,14 @@ func dogoBuild(config *schema.Config) {
 	}
 
 	// Run!
-	r := commandtree.NewRunner(buildTasks, 5)
+	r := commandtree.NewRunner(buildTasks, 10)
 	go r.Run(nil)
 	commandtree.ConsoleUI(buildTasks)
+
+	// return error if this didn't work.
+	for _, cmd := range buildTasks.Children {
+		if cmd.AsCommand().AnyError() {
+			os.Exit(2)
+		}
+	}
 }
