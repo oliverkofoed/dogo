@@ -208,7 +208,15 @@ var Manager = schema.ModuleManager{
 				}
 			}
 			if !found {
-				return fmt.Errorf("Could not locate image tag '%v' on this machine. Are you sure it's built?", tag)
+				list := make([]string, 0)
+				for _, image := range localImages {
+					for _, imageTag := range image.RepoTags {
+						if imageTag != "<none>:<none>" {
+							list = append(list, imageTag)
+						}
+					}
+				}
+				return fmt.Errorf("Could not locate image tag '%v' on this machine. Are you sure it's built? Images found: %v", tag, list)
 			}
 
 			// mark usage of image

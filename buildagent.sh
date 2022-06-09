@@ -26,4 +26,4 @@ wait
 popd > /dev/null
 
 # convert agents to gocode for embedding
-go-bindata -o agents.go agent/.build
+# go-bindata -o agents.go agent/.build
