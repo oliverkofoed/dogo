@@ -19,7 +19,7 @@ import (
 	"github.com/oliverkofoed/dogo/version"
 )
 
-//go:embed agent/.build/*
+//go:embed agent/build/*
 var embeddedFiles embed.FS
 
 type deployStep int

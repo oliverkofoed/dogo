@@ -2,20 +2,20 @@ package docker
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"strings"
 	"sync"
 
-	"github.com/coreos/etcd/version"
-	"github.com/docker/distribution/configuration"
-	"github.com/docker/distribution/context"
-	"github.com/docker/distribution/health"
-	"github.com/docker/distribution/registry"
-	"github.com/docker/distribution/registry/handlers"
-	"github.com/docker/distribution/registry/listener"
-	_ "github.com/docker/distribution/registry/storage/driver/filesystem" // register filesystem for registry
-	log "github.com/sirupsen/logrus"
+	"github.com/distribution/distribution/v3/configuration"
+	dcontext "github.com/distribution/distribution/v3/context"
+	"github.com/distribution/distribution/v3/health"
+	"github.com/distribution/distribution/v3/registry"
+	"github.com/distribution/distribution/v3/registry/handlers"
+	"github.com/distribution/distribution/v3/registry/listener"
+	_ "github.com/distribution/distribution/v3/registry/storage/driver/filesystem" // register filesystem for registry
+	"github.com/oliverkofoed/dogo/version"
 )
 
 var registryPort = 52929
@@ -27,7 +27,7 @@ var registryStartErr error
 func StartDockerRegistry(logLevel string) error {
 	registryStartOnce.Do(func() {
 		// setup context
-		ctx := context.WithVersion(context.Background(), version.Version)
+		ctx := dcontext.WithVersion(dcontext.Background(), version.Version)
 		config := &configuration.Configuration{
 			Storage: configuration.Storage{
 				"filesystem": configuration.Parameters{
