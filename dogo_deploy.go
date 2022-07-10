@@ -476,7 +476,7 @@ func getState(resource *schema.Resource, connection schema.ServerConnection, use
 
 		// upload agent
 		l.Logf(" - uploading agent version: %v", version.Version)
-		agentBytes, err := embeddedFiles.ReadFile("agent/.build/agent." + os + "." + arch)
+		agentBytes, err := embeddedFiles.ReadFile("agent/build/agent." + os + "." + arch)
 		if err != nil {
 			panic(err)
 		}
