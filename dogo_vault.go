@@ -203,6 +203,18 @@ func getOpenVault(filename string) (*vault.Vault, error) {
 		}
 	}
 
+	// did we get a passphrase from ENV?
+	envPassphrase := strings.TrimSpace(os.Getenv(strings.ToUpper(fmt.Sprintf("%vPASS", filename))))
+	if envPassphrase != "" {
+		v, _, err := vault.Open(path, envPassphrase, nil)
+		if err != nil && !strings.Contains(err.Error(), "wrong passphrase") {
+			return nil, err
+		}
+		if v != nil {
+			return v, nil
+		}
+	}
+
 	// check that we actually can ask for a pssword.
 	if !term.IsTerminal {
 		return nil, fmt.Errorf("can't ask for password for vault %v in non-terminal context", filename)
