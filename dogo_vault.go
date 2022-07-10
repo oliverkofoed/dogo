@@ -198,19 +198,21 @@ func getOpenVault(filename string) (*vault.Vault, error) {
 				return nil, err
 			}
 			if v != nil {
+				openVaults[path] = v
 				return v, nil
 			}
 		}
 	}
 
 	// did we get a passphrase from ENV?
-	envPassphrase := strings.TrimSpace(os.Getenv(strings.ToUpper(fmt.Sprintf("%vPASS", filename))))
+	envPassphrase := strings.TrimSpace(os.Getenv(strings.ToUpper(fmt.Sprintf("%vPASS", strings.Replace(filename, ".", "", -1)))))
 	if envPassphrase != "" {
 		v, _, err := vault.Open(path, envPassphrase, nil)
 		if err != nil && !strings.Contains(err.Error(), "wrong passphrase") {
 			return nil, err
 		}
 		if v != nil {
+			openVaults[path] = v
 			return v, nil
 		}
 	}
