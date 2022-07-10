@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"embed"
 	"errors"
 	"fmt"
 	"io"
@@ -17,6 +18,9 @@ import (
 	"github.com/oliverkofoed/dogo/schema"
 	"github.com/oliverkofoed/dogo/version"
 )
+
+//go:embed agent/build/*
+var embeddedFiles embed.FS
 
 type deployStep int
 
@@ -472,7 +476,7 @@ func getState(resource *schema.Resource, connection schema.ServerConnection, use
 
 		// upload agent
 		l.Logf(" - uploading agent version: %v", version.Version)
-		agentBytes, err := Asset("agent/.build/agent." + os + "." + arch)
+		agentBytes, err := embeddedFiles.ReadFile("agent/.build/agent." + os + "." + arch)
 		if err != nil {
 			panic(err)
 		}
