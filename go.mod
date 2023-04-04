@@ -6,7 +6,7 @@ require (
 	github.com/cloudflare/cloudflare-go v0.44.0
 	github.com/coreos/etcd v3.3.27+incompatible
 	github.com/distribution/distribution/v3 v3.0.0-20220702071910-8857a1948739
-	github.com/docker/docker v20.10.17+incompatible
+	github.com/docker/docker v20.10.24+incompatible
 	github.com/docker/docker-credential-helpers v0.6.4
 	github.com/docker/go-connections v0.4.0
 	github.com/hashicorp/hcl v1.0.0
