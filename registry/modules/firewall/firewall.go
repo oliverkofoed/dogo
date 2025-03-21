@@ -168,23 +168,38 @@ func buildCommand(c *schema.CalculateCommandsArgs, isIPV6 bool, modules []*Firew
 			trimmed := strings.TrimSpace(address)
 			if trimmed != "" || len(addresses) == 1 {
 				if trimmed != "" {
-					ip := net.ParseIP(trimmed)
-					if ip == nil {
-						return nil, nil, nil, false, fmt.Errorf("Could not parse address '%v' from address list '%v' (values should be comma seperated)", trimmed, fromString)
-					}
-
-					if ip.To4() != nil {
-						if isIPV6 {
-							continue
+					// if the address contains a slash, treat it as CIDR
+					if strings.Contains(trimmed, "/") {
+						_, ipnet, err := net.ParseCIDR(trimmed)
+						if err != nil {
+							return nil, nil, nil, false, fmt.Errorf("Could not parse CIDR '%v' from address list '%v': %v", trimmed, fromString, err)
 						}
-						if !strings.Contains(trimmed, "/") {
+						trimmed = ipnet.String()
+						// Ensure the IP family matches the rule (IPv4 vs IPv6)
+						if ipnet.IP.To4() != nil {
+							if isIPV6 {
+								continue
+							}
+						} else {
+							if !isIPV6 {
+								continue
+							}
+						}
+					} else {
+						// Otherwise treat it as a plain IP
+						ip := net.ParseIP(trimmed)
+						if ip == nil {
+							return nil, nil, nil, false, fmt.Errorf("Could not parse address '%v' from address list '%v' (values should be comma seperated)", trimmed, fromString)
+						}
+						if ip.To4() != nil {
+							if isIPV6 {
+								continue
+							}
 							trimmed = trimmed + "/32"
-						}
-					} else if ip.To4() == nil {
-						if !isIPV6 {
-							continue
-						}
-						if !strings.Contains(trimmed, "/") {
+						} else {
+							if !isIPV6 {
+								continue
+							}
 							trimmed = ip.String() + "/128"
 						}
 					}
