@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/oliverkofoed/dogo/commandtree"
+	"github.com/oliverkofoed/dogo/registry/modules/docker"
 	"github.com/oliverkofoed/dogo/schema"
 )
 
@@ -19,35 +20,38 @@ func dogoBuild(config *schema.Config) {
 					if str, ok := image.(string); ok {
 						key := "image:" + str
 						if _, found := alreadyDoing[key]; !found {
-							buildTasks.Add("docker pull '"+str+"'", commandtree.NewExecCommand("", " -> pulling docker image took %v", "", "docker", "pull", str))
+							buildTasks.Add("docker pull '"+str+"'", commandtree.NewExecCommand("", " -> pulling docker image took %v", "", "docker", "pull", "--platform", "linux/amd64", str))
 							alreadyDoing[key] = true
 						}
 					}
 				}
 				if folder, found := mod.Config["folder"]; found {
 					if str, ok := folder.(string); ok {
+						caption := str
+						if folderInfo, err := docker.GetFolderDockerInfo(str); err == nil {
+							caption = folderInfo.ImageName
+						}
 						key := "folder:" + str
 						if _, found := alreadyDoing[key]; !found {
-							buildTasks.Add(str, commandtree.NewFuncCommand(func(c *commandtree.Command) {
-								// valid path?
-								path, err := filepath.Abs(str)
+							buildTasks.Add(caption, commandtree.NewFuncCommand(func(c *commandtree.Command) {
+								folderInfo, err := docker.GetFolderDockerInfo(str)
 								if err != nil {
-									c.Errf("Invalid path: '%v'. (%v)", path, err.Error())
+									c.Errf("Invalid folder: '%v'. (%v)", str, err.Error())
 									return
 								}
 
 								// does folder exist?
-								if _, err := os.Stat(path); err != nil {
+								if _, err := os.Stat(folderInfo.Path); err != nil {
 									if os.IsNotExist(err) {
-										c.Errf("path: '%v' does not exist", path)
+										c.Errf("path: '%v' does not exist", folderInfo.Path)
 									} else {
-										c.Errf("error for '%v': %v", path, err.Error())
+										c.Errf("error for '%v': %v", folderInfo.Path, err.Error())
 									}
 									return
 								}
 
 								// does folder have build script?
-								buildScriptPath := filepath.Join(path, "build.sh")
+								buildScriptPath := filepath.Join(folderInfo.Path, "build.sh")
 								s, err := os.Stat(buildScriptPath)
 								if err == nil {
 									if s.Mode()&0111 == 0 {
@@ -57,7 +61,7 @@ func dogoBuild(config *schema.Config) {
 
 									c.Logf("Running build script")
 									start := time.Now()
-									if err := commandtree.OSExecAllToStdOut(c, path, "", buildScriptPath); err != nil {
+									if err := commandtree.OSExecAllToStdOut(c, folderInfo.Path, "", buildScriptPath); err != nil {
 										c.Err(err)
 										return
 									}
@@ -65,11 +69,11 @@ func dogoBuild(config *schema.Config) {
 								}
 
 								// docker build
-								name := filepath.Base(path)
+								name := folderInfo.ImageName
 								c.Logf("Building docker image with tag='%v'", name)
 								start := time.Now()
 
-								if err = commandtree.OSExecAllToStdOut(c, path, "", "docker", "build", "--progress", "plain", "-t", name, "."); err != nil {
+								if err = commandtree.OSExecAllToStdOut(c, folderInfo.Path, "", "docker", "build", "--platform", "linux/amd64", "--progress", "plain", "-t", name, "."); err != nil {
 									c.Err(err)
 									return
 								}

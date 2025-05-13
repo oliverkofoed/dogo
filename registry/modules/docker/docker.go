@@ -184,7 +184,11 @@ var Manager = schema.ModuleManager{
 				return err
 			}
 			if folder != "" {
-				tag = filepath.Base(folder) + ":latest"
+				folderInfo, err := GetFolderDockerInfo(folder)
+				if err != nil {
+					return err
+				}
+				tag = folderInfo.ImageName + ":latest"
 			}
 			cron, err := module.Cron.Render(nil)
 			if err != nil {
